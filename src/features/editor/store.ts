@@ -39,6 +39,7 @@ interface EditorState extends HistorySnapshot {
   setGridSize: (size: number) => void;
   snapSelectedToGrid: () => void;
   resetStore: () => void;
+  mergeRemoteState: (data: { nodes: Node<NodeData>[]; edges: Edge[]; settings: BoardSettings }) => void;
 }
 
 const defaultBoardSettings: BoardSettings = {
@@ -412,16 +413,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
-  resetStore: () => {
-    set({
-      nodes: initialNodes,
-      edges: initialEdges,
-      boardSettings: defaultBoardSettings,
-      past: [],
-      future: [],
-      clipboard: null,
-      snapToGrid: true,
-      gridSize: 24,
+  resetStore: () => set({
+    nodes: [],
+    edges: [],
+    boardSettings: defaultBoardSettings,
+    past: [],
+    future: [],
+    clipboard: null,
+    snapToGrid: true,
+    gridSize: 24,
+  }),
+
+  mergeRemoteState: (remoteData) => set((state) => {
+    // 操作中（選択中またはドラッグ中）のローカルノードは上書きせず保持する
+    const newNodes = remoteData.nodes.map(remoteNode => {
+      const localNode = state.nodes.find(n => n.id === remoteNode.id);
+      if (localNode && (localNode.selected || localNode.dragging)) {
+        return localNode;
+      }
+      return remoteNode;
     });
-  },
+
+    // リモートにまだ存在しないが、ローカルで操作中の新規ノードを保持する
+    const newLocalNodes = state.nodes.filter(
+      n => !remoteData.nodes.find(rn => rn.id === n.id) && (n.selected || n.dragging)
+    );
+
+    return {
+      nodes: [...newNodes, ...newLocalNodes],
+      edges: remoteData.edges,
+      boardSettings: remoteData.settings,
+    };
+  }),
 }));

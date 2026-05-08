@@ -74,6 +74,19 @@ export const loadBoard = async (boardId: string): Promise<BoardData | null> => {
   return null;
 };
 
+import { onSnapshot } from 'firebase/firestore';
+
+export const subscribeToBoard = (boardId: string, onUpdate: (data: BoardData | null) => void): () => void => {
+  const docRef = doc(db, BOARDS_COLLECTION, boardId);
+  return onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      onUpdate(docSnap.data() as BoardData);
+    } else {
+      onUpdate(null);
+    }
+  });
+};
+
 export type BoardSort = 'recent' | 'popular';
 
 export interface ListBoardsOptions {

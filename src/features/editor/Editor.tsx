@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -8,11 +8,12 @@ import { Sidebar } from './panels/Sidebar';
 import { NodeConfigPanel } from './panels/NodeConfigPanel';
 import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
-import { canEditBoard, loadBoard, saveBoard } from '../../services/boardService';
+import { canEditBoard, loadBoard, saveBoard, subscribeToBoard } from '../../services/boardService';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { validateBoard } from './utils/boardValidation';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { getLocalOwnerId } from '../../services/localIdentity';
+import { useToast } from '../../hooks/useToast';
 
 const categories = [
   { value: 'party', label: 'パーティー' },
@@ -40,8 +41,12 @@ export default function Editor() {
   const [savedBoardId, setSavedBoardId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [draftAvailable, setDraftAvailable] = useState(() => Boolean(localStorage.getItem(draftKey)));
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'synced'>('idle');
+  const { addToast } = useToast();
 
   const location = useLocation();
+  const isUpdatingFromRemote = useRef(false);
+  const lastLocalUpdate = useRef(0);
 
   useEffect(() => {
     if (!routeBoardId) {
@@ -110,6 +115,66 @@ export default function Editor() {
     localStorage.setItem(draftKey, JSON.stringify(draft));
   }, [authorName, boardDescription, boardName, boardSettings, category, currentBoardId, draftAvailable, draftKey, edges, isLoadingBoard, isPublic, nodes]);
 
+  // リモートからの変更を購読（共同編集）
+  useEffect(() => {
+    if (!currentBoardId || isLoadingBoard || draftAvailable) return;
+    const unsubscribe = subscribeToBoard(currentBoardId, (data) => {
+      if (!data) return;
+      // 自分が直近で保存したばかりなら上書きをスキップ（エコー防止）
+      if (Date.now() - lastLocalUpdate.current < 2500) return;
+
+      isUpdatingFromRemote.current = true;
+      useEditorStore.getState().mergeRemoteState({
+        nodes: data.nodes,
+        edges: data.edges,
+        settings: data.settings,
+      });
+      if (data.name !== boardName) setBoardName(data.name);
+      if (data.description !== boardDescription) setBoardDescription(data.description || '');
+      if (data.authorName !== authorName) setAuthorName(data.authorName || '');
+      if (data.isPublic !== isPublic) setIsPublic(Boolean(data.isPublic));
+      
+      addToast('他のユーザーによる変更を同期しました', 'info');
+      setSyncStatus('synced');
+      setTimeout(() => setSyncStatus('idle'), 2000);
+      setTimeout(() => { isUpdatingFromRemote.current = false; }, 100);
+    });
+    return () => unsubscribe();
+  }, [currentBoardId, isLoadingBoard, draftAvailable]);
+
+  // 自動保存ロジック（デバウンス処理）
+  useEffect(() => {
+    if (!currentBoardId || isLoadingBoard || draftAvailable || isUpdatingFromRemote.current || !canEdit) return;
+
+    setSyncStatus('saving');
+    const timeoutId = setTimeout(async () => {
+      try {
+        lastLocalUpdate.current = Date.now();
+        const ownerId = user?.uid || localOwnerId;
+        const ownerName = user?.displayName || user?.email || authorName || 'ローカルユーザー';
+        await saveBoard({
+          id: currentBoardId,
+          name: boardName,
+          description: boardDescription,
+          authorName: authorName || ownerName,
+          ownerId,
+          ownerName,
+          category,
+          nodes,
+          edges,
+          settings: boardSettings,
+          isPublic,
+        });
+        setSyncStatus('synced');
+        setTimeout(() => setSyncStatus('idle'), 2000);
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      }
+    }, 1500); // 1.5秒間操作がなければ保存
+
+    return () => clearTimeout(timeoutId);
+  }, [nodes, edges, boardSettings, boardName, boardDescription, authorName, category, isPublic, currentBoardId, isLoadingBoard, draftAvailable, canEdit]);
+
   const handleRestoreDraft = () => {
     const raw = localStorage.getItem(draftKey);
     if (!raw) return;
@@ -173,9 +238,10 @@ export default function Editor() {
       setSavedBoardId(boardId);
       localStorage.removeItem(draftKey);
       setDraftAvailable(false);
+      addToast('盤面を保存しました', 'success');
     } catch (error) {
       console.error('Failed to save board:', error);
-      alert('保存に失敗しました。Firebaseの権限設定も確認してください。');
+      addToast('保存に失敗しました。', 'danger');
     } finally {
       setIsSaving(false);
     }
@@ -272,6 +338,23 @@ export default function Editor() {
                 </select>
               </div>
               {!canEdit && <p className="text-xs font-bold text-amber-600">編集権限がないため、保存時にコピーを作成します。</p>}
+              
+              <div className="flex items-center gap-2 mt-2">
+                <AnimatePresence mode="wait">
+                  {syncStatus === 'saving' && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 text-xs text-slate-500 bg-white/50 px-2 py-1 rounded-md">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      同期中...
+                    </motion.div>
+                  )}
+                  {syncStatus === 'synced' && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-md">
+                      <Check className="w-3 h-3" />
+                      クラウドと同期完了
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
           <div className="pointer-events-auto flex items-center gap-3">

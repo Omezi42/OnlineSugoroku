@@ -1,6 +1,8 @@
 import type { NodeType } from '../../../types/board';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { BoardSettingsPanel } from './BoardSettingsPanel';
+import { useEditorStore } from '../store';
+import { Layers } from 'lucide-react';
 
 export const Sidebar = () => {
   const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {
@@ -37,6 +39,14 @@ export const Sidebar = () => {
             </div>
           ))}
         </div>
+
+        <button
+          onClick={() => useEditorStore.getState().addArea()}
+          className="mt-4 w-full p-3 rounded-xl bg-white/70 border-2 border-dashed border-purple-200 text-purple-600 font-bold text-sm flex items-center justify-center gap-2 hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
+        >
+          <Layers className="w-4 h-4" />
+          エリア（枠）を追加
+        </button>
       </div>
       
       <div className="mt-6 border-t border-slate-200/50 pt-6">

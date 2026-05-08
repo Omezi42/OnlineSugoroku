@@ -11,6 +11,7 @@ import { RulebookModal } from '../../components/RulebookModal';
 import { AuthPanel } from '../auth/AuthPanel';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { getLocalOwnerId } from '../../services/localIdentity';
+import { useToast } from '../../hooks/useToast';
 
 const categories = [
   { value: 'all', label: 'すべて' },
@@ -44,6 +45,7 @@ export default function Home() {
   const [searchText, setSearchText] = useState('');
   const [category, setCategory] = useState('all');
   const [sort, setSort] = useState<BoardSort>('recent');
+  const { addToast } = useToast();
 
   useEffect(() => {
     let mounted = true;
@@ -95,8 +97,9 @@ export default function Home() {
       await deleteBoard(board.id);
       setMyBoards(prev => prev.filter(b => b.id !== board.id));
       setBoards(prev => prev.filter(b => b.id !== board.id));
+      addToast(`「${board.name || '無題のすごろく'}」を削除しました`, 'success');
     } catch {
-      alert('削除に失敗しました。');
+      addToast('削除に失敗しました', 'danger');
     }
   };
 
@@ -104,19 +107,19 @@ export default function Home() {
     <GlassCard key={board.id || `${board.name}-${index}`} hoverEffect className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-bold text-slate-800 truncate">{board.name || '無題のすごろく'}</h3>
+          <h3 className="font-bold text-slate-800 truncate" title={board.name}>{board.name || '無題のすごろく'}</h3>
           <p className="text-xs text-slate-500 mt-1">
             {board.nodes.filter((node) => node.data.nodeType !== 'area').length}マス / {board.edges.length}ルート
           </p>
-          <p className="text-xs text-slate-500 mt-1 truncate">{board.description || '説明はまだありません'}</p>
+          <p className="text-xs text-slate-500 mt-1 line-clamp-2 min-h-[2rem]" title={board.description}>{board.description || '説明はまだありません'}</p>
           <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-bold">
             <span className="rounded-full bg-purple-50 px-2 py-1 text-purple-700">{categories.find((item) => item.value === board.category)?.label || '未分類'}</span>
             <span className="rounded-full bg-pink-50 px-2 py-1 text-pink-700">プレイ {board.playCount || 0}</span>
           </div>
         </div>
         <div className="flex flex-col gap-2 items-end">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white flex items-center justify-center shadow-md">
-            <Play className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white flex shrink-0 items-center justify-center shadow-md">
+            <Play className="w-5 h-5 ml-0.5" />
           </div>
           {showDelete && (
             <button
@@ -129,18 +132,18 @@ export default function Home() {
           )}
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <button onClick={() => setSelectedBoard(board)} className="py-2 rounded-xl bg-white/70 text-sm font-bold text-blue-700 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1.5">
-          <Info className="w-4 h-4" />
-          詳細
+      <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
+        <button onClick={() => setSelectedBoard(board)} className="py-2 px-1 rounded-xl bg-white/70 text-xs sm:text-sm font-bold text-blue-700 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1 sm:gap-1.5">
+          <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span>詳細</span>
         </button>
-        <button onClick={() => board.id && navigate(`/editor/${board.id}`)} className="py-2 rounded-xl bg-white/70 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5">
-          <Pencil className="w-4 h-4" />
-          編集
+        <button onClick={() => board.id && navigate(`/editor/${board.id}`)} className="py-2 px-1 rounded-xl bg-white/70 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1 sm:gap-1.5">
+          <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span>編集</span>
         </button>
-        <button onClick={() => board.id && navigate(`/play/${board.id}/room-${Date.now().toString(36)}`)} className="py-2 rounded-xl bg-white/70 text-sm font-bold text-purple-700 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1.5">
-          <Play className="w-4 h-4" />
-          遊ぶ
+        <button onClick={() => board.id && navigate(`/play/${board.id}/room-${Date.now().toString(36)}`)} className="py-2 px-1 rounded-xl bg-white/70 text-xs sm:text-sm font-bold text-purple-700 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm">
+          <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span>遊ぶ</span>
         </button>
       </div>
     </GlassCard>
@@ -163,15 +166,15 @@ export default function Home() {
             <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
               React Flowのエディタで自由に盤面を作り、URLひとつで友達とリアルタイムに遊べます。
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start items-center">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center lg:justify-start items-center">
               <Button size="lg" icon={<PenTool className="w-5 h-5" />} onClick={() => navigate('/editor')} className="w-full sm:w-auto">
                 空から作る
               </Button>
               <div className="relative group w-full sm:w-auto">
-                <Button variant="glass" size="lg" icon={<Sparkles className="w-5 h-5" />} className="w-full sm:w-auto text-pink-600 border-pink-200 hover:bg-pink-50">
+                <Button variant="glass" size="lg" icon={<Sparkles className="w-5 h-5" />} className="w-full sm:w-auto text-pink-600 border-pink-200 hover:bg-pink-50 group-hover:bg-pink-50">
                   テンプレから作る ▼
                 </Button>
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-30 p-2 flex flex-col gap-1">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 mt-2 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-30 p-2 flex flex-col gap-1">
                   <button onClick={() => navigate('/editor?template=party')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-pink-50 transition-colors">
                     <span className="font-bold text-slate-800">🎉 パーティー</span>
                     <span className="block text-xs text-slate-500 mt-0.5">ミニゲームやワープ満載の楽しいルート</span>
@@ -273,9 +276,32 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-slate-800 pr-8">{selectedBoard.name || '無題のすごろく'}</h2>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{selectedBoard.description || 'この盤面にはまだ説明がありません。'}</p>
                 <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-xl bg-white/60 p-3"><p className="text-xs text-slate-500">マス</p><p className="font-black text-slate-800">{selectedBoard.nodes.filter((node) => node.data.nodeType !== 'area').length}</p></div>
-                  <div className="rounded-xl bg-white/60 p-3"><p className="text-xs text-slate-500">ルート</p><p className="font-black text-slate-800">{selectedBoard.edges.length}</p></div>
-                  <div className="rounded-xl bg-white/60 p-3"><p className="text-xs text-slate-500">作者</p><p className="font-black text-slate-800 truncate">{selectedBoard.authorName || '未設定'}</p></div>
+                  <div className="rounded-xl bg-white/60 p-3 shadow-sm border border-white/50"><p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">マス</p><p className="font-black text-slate-800 text-lg">{selectedBoard.nodes.filter((node) => node.data.nodeType !== 'area').length}</p></div>
+                  <div className="rounded-xl bg-white/60 p-3 shadow-sm border border-white/50"><p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">ルート</p><p className="font-black text-slate-800 text-lg">{selectedBoard.edges.length}</p></div>
+                  <div className="rounded-xl bg-white/60 p-3 shadow-sm border border-white/50"><p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">作者</p><p className="font-black text-slate-800 truncate">{selectedBoard.authorName || '未設定'}</p></div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => {
+                      if (!selectedBoard.id) return;
+                      navigate(`/play/${selectedBoard.id}/room-${Date.now().toString(36)}`);
+                    }}
+                    className="py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Play className="w-5 h-5 fill-current" />
+                    今すぐ遊ぶ
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!selectedBoard.id) return;
+                      navigate(`/editor/${selectedBoard.id}`);
+                    }}
+                    className="py-3 bg-white/80 backdrop-blur-md text-slate-700 rounded-2xl font-bold flex items-center justify-center gap-2 border border-slate-200 hover:bg-white transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Pencil className="w-5 h-5" />
+                    編集する
+                  </button>
                 </div>
               </GlassCard>
             </motion.div>

@@ -8,7 +8,7 @@
   --color-secondary-500: #3b82f6; /* Blue */
   --color-tertiary-500: #a855f7; /* Purple */
 
-  --font-sans: 'Inter', 'Outfit', system-ui, sans-serif;
+  --font-sans: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
 }
 
 @layer base {
