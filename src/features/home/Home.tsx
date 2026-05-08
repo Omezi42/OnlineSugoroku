@@ -1,20 +1,21 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Play, PenTool, Sparkles, Users } from 'lucide-react';
+import { Play, PenTool, Sparkles, Users, X, ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { GlassCard } from '../../components/ui/GlassCard';
 
 export default function Home() {
   const navigate = useNavigate();
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [roomIdInput, setRoomIdInput] = useState('');
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-      },
+      transition: { staggerChildren: 0.2 },
     },
   };
 
@@ -27,8 +28,15 @@ export default function Home() {
     },
   };
 
+  const handleJoin = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (roomIdInput.trim()) {
+      navigate(`/play/${roomIdInput.trim()}`);
+    }
+  };
+
   return (
-    <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-4 bg-slate-50">
       {/* 装飾用の背景要素 */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink-400/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-400/20 rounded-full blur-3xl pointer-events-none" />
@@ -40,7 +48,7 @@ export default function Home() {
         animate="visible"
       >
         <motion.div variants={itemVariants} className="mb-6 flex justify-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel text-sm font-medium text-purple-700 mb-4">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel text-sm font-medium text-purple-700 mb-4 shadow-sm border border-white/50">
             <Sparkles className="w-4 h-4" />
             <span>最新アップデート: v1.0 登場</span>
           </div>
@@ -48,7 +56,7 @@ export default function Home() {
 
         <motion.h1 
           variants={itemVariants}
-          className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 mb-6"
+          className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 mb-6 drop-shadow-sm"
         >
           オリジナルの<span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">ボードゲーム</span>を<br />
           作って、みんなと遊ぼう。
@@ -75,11 +83,7 @@ export default function Home() {
             variant="glass" 
             size="lg" 
             icon={<Play className="w-5 h-5" />}
-            onClick={() => {
-              // TODO: ルームID入力モーダルなどを出す
-              const roomId = prompt('参加するルームIDを入力してください (空ならテストルーム)');
-              navigate(`/play/${roomId || 'test-room'}`);
-            }}
+            onClick={() => setShowJoinModal(true)}
             className="w-full sm:w-auto"
           >
             ルームに参加する
@@ -89,36 +93,93 @@ export default function Home() {
         {/* Feature Cards */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
           <GlassCard hoverEffect>
-            <div className="w-12 h-12 rounded-2xl bg-pink-100 flex items-center justify-center mb-4 text-pink-600">
+            <div className="w-12 h-12 rounded-2xl bg-pink-100 flex items-center justify-center mb-4 text-pink-600 shadow-inner">
               <PenTool className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-bold mb-2">圧倒的自由度のエディター</h3>
-            <p className="text-slate-600">
+            <h3 className="text-xl font-bold mb-2 text-slate-800">圧倒的自由度のエディター</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">
               ノードを繋ぐだけで直感的に盤面を作成。分岐やワープ、画像のカスタムなど多彩な表現が可能です。
             </p>
           </GlassCard>
 
           <GlassCard hoverEffect>
-            <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center mb-4 text-purple-600">
+            <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center mb-4 text-purple-600 shadow-inner">
               <Sparkles className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-bold mb-2">12種のアクション</h3>
-            <p className="text-slate-600">
+            <h3 className="text-xl font-bold mb-2 text-slate-800">12種のアクション</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">
               パラメータ増減からミニゲームまで、マスに止まった際のアクションを複数組み合わせることができます。
             </p>
           </GlassCard>
 
           <GlassCard hoverEffect>
-            <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center mb-4 text-blue-600">
+            <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center mb-4 text-blue-600 shadow-inner">
               <Users className="w-6 h-6" />
             </div>
-            <h3 className="text-xl font-bold mb-2">完全同期のマルチプレイ</h3>
-            <p className="text-slate-600">
+            <h3 className="text-xl font-bold mb-2 text-slate-800">完全同期のマルチプレイ</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">
               サイコロの物理演算から他プレイヤーへの干渉まで、すべてのアクションがリアルタイムに同期されます。
             </p>
           </GlassCard>
         </motion.div>
       </motion.div>
+
+      {/* ルーム参加モーダル */}
+      <AnimatePresence>
+        {showJoinModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="w-full max-w-md"
+            >
+              <GlassCard className="p-6 relative shadow-2xl">
+                <button 
+                  onClick={() => setShowJoinModal(false)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                
+                <h2 className="text-2xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+                  <Play className="w-6 h-6 text-purple-500" />
+                  ルームに参加
+                </h2>
+                <p className="text-slate-500 text-sm mb-6">
+                  友達から共有されたルームID（またはURLの末尾）を入力してください。
+                </p>
+
+                <form onSubmit={handleJoin} className="space-y-4">
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="例: room-12345"
+                      value={roomIdInput}
+                      onChange={(e) => setRoomIdInput(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all font-mono text-slate-700"
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!roomIdInput.trim()}
+                    className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    参加する
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                </form>
+              </GlassCard>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

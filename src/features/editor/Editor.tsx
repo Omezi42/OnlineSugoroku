@@ -1,16 +1,22 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Canvas } from './canvas/Canvas';
 import { Sidebar } from './panels/Sidebar';
 import { NodeConfigPanel } from './panels/NodeConfigPanel';
 import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
 import { saveBoard } from '../../services/boardService';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Play, Copy, Check, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { GlassCard } from '../../components/ui/GlassCard';
 
 export default function Editor() {
+  const navigate = useNavigate();
   const { nodes, edges, boardSettings } = useEditorStore();
   const [isSaving, setIsSaving] = useState(false);
   const [boardName, setBoardName] = useState('名称未設定のすごろく');
+  const [savedBoardId, setSavedBoardId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const handleSave = async () => {
     try {
@@ -21,15 +27,21 @@ export default function Editor() {
         edges,
         settings: boardSettings,
       });
-      alert(`保存しました！\nプレイ用URL: /play/${boardId}`);
-      // 実際にはコピー用モーダルなどを出すが、今回は直接プレイ画面に遷移するかアラートで表示
-      // navigate(`/play/${boardId}`);
+      setSavedBoardId(boardId);
     } catch (error) {
       console.error('Failed to save board:', error);
       alert('保存に失敗しました。');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const shareUrl = savedBoardId ? `${window.location.origin}/play/${savedBoardId}` : '';
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -57,10 +69,77 @@ export default function Editor() {
             className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 disabled:opacity-70 disabled:hover:translate-y-0"
           >
             {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isSaving ? '保存中...' : '保存して共有'}
+            {isSaving ? '保存中...' : '保存してプレイ'}
           </button>
         </div>
       </div>
+
+      {/* 保存完了モーダル */}
+      <AnimatePresence>
+        {savedBoardId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-md"
+            >
+              <GlassCard className="p-8 text-center relative">
+                <button 
+                  onClick={() => setSavedBoardId(null)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">保存完了！</h2>
+                <p className="text-slate-500 mb-6">
+                  あなたのすごろくがクラウドに保存されました。<br/>URLを共有してみんなで遊ぼう！
+                </p>
+
+                <div className="bg-white/50 border border-slate-200 rounded-lg p-2 flex items-center gap-2 mb-6">
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value={shareUrl}
+                    className="flex-1 bg-transparent text-sm text-slate-600 outline-none px-2"
+                  />
+                  <button 
+                    onClick={handleCopy}
+                    className="p-2 bg-white rounded-md text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors shadow-sm"
+                    title="URLをコピー"
+                  >
+                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => navigate(`/play/${savedBoardId}`)}
+                    className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                  >
+                    <Play className="w-5 h-5" />
+                    今すぐテストプレイする
+                  </button>
+                  <button
+                    onClick={() => setSavedBoardId(null)}
+                    className="w-full py-3 bg-white text-slate-700 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition-colors"
+                  >
+                    エディターに戻る
+                  </button>
+                </div>
+              </GlassCard>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

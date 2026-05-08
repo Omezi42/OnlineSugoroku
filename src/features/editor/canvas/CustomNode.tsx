@@ -27,6 +27,9 @@ const sizeClasses: Record<string, string> = {
   large: 'w-40 h-40 text-lg',
 };
 
+// ハンドル共通スタイル（大きめ＋ホバーエフェクト）
+const handleClass = 'w-5 h-5 !bg-purple-500 border-2 !border-white hover:!bg-pink-500 hover:scale-125 transition-all cursor-crosshair z-10';
+
 export const CustomNode = ({ data, selected }: { data: NodeData, selected?: boolean }) => {
   const players = data.playersOnNode || [];
 
@@ -37,15 +40,15 @@ export const CustomNode = ({ data, selected }: { data: NodeData, selected?: bool
         typeColors[data.nodeType],
         sizeClasses[data.size || 'medium'],
         selected && 'ring-4 ring-purple-400 ring-offset-2',
-        data.isStop && 'ring-4 ring-orange-500 ring-offset-2'
+        data.isStop && !selected && 'ring-4 ring-orange-500 ring-offset-2'
       )}
       style={data.color ? { background: data.color } : {}}
     >
-      {/* 接続ポイント (Target = 上) */}
+      {/* 入力ハンドル (Target = 上) */}
       <Handle
         type="target"
         position={Position.Top}
-        className="w-4 h-4 !bg-purple-500 border-2 !border-white"
+        className={cn(handleClass, '!bg-green-500 hover:!bg-green-400')}
       />
 
       {/* マスの種類ラベル */}
@@ -77,7 +80,7 @@ export const CustomNode = ({ data, selected }: { data: NodeData, selected?: bool
 
       {/* プレイヤーコマ表示 */}
       {players.length > 0 && (
-        <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex gap-1 z-20">
+        <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex gap-1 z-20">
           <AnimatePresence>
             {players.map((p, idx) => (
               <motion.div
@@ -99,24 +102,24 @@ export const CustomNode = ({ data, selected }: { data: NodeData, selected?: bool
         </div>
       )}
 
-      {/* 接続ポイント (Source = 下、左、右) */}
+      {/* 出力ハンドル (Source = 下、左、右) - 大きくて掴みやすい */}
       <Handle
         type="source"
         position={Position.Bottom}
         id="bottom"
-        className="w-4 h-4 !bg-purple-500 border-2 !border-white"
+        className={handleClass}
       />
       <Handle
         type="source"
         position={Position.Right}
         id="right"
-        className="w-4 h-4 !bg-purple-500 border-2 !border-white"
+        className={handleClass}
       />
       <Handle
         type="source"
         position={Position.Left}
         id="left"
-        className="w-4 h-4 !bg-purple-500 border-2 !border-white"
+        className={handleClass}
       />
     </div>
   );

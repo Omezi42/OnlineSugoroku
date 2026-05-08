@@ -128,25 +128,31 @@ const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps)
           )}
 
           {action.type === 'warp' && (
-            <select
-              className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
-              value={(action as WarpAction).targetNodeId}
-              onChange={(e) => onUpdate({ ...action, targetNodeId: e.target.value } as WarpAction)}
-            >
-              <option value="">ワープ先を選択...</option>
-              {nodes.map(n => <option key={n.id} value={n.id}>{n.data.label} ({n.id})</option>)}
-            </select>
+            <div className="space-y-1">
+              <label className="text-xs text-slate-500 font-bold block mb-1">ワープ先のマス</label>
+              <select
+                className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                value={(action as WarpAction).targetNodeId}
+                onChange={(e) => onUpdate({ ...action, targetNodeId: e.target.value } as WarpAction)}
+              >
+                <option value="">ワープ先を選択...</option>
+                {nodes.map(n => <option key={n.id} value={n.id}>{n.data.label || '無名'} (ID: {n.id.substring(0, 4)}...)</option>)}
+              </select>
+            </div>
           )}
 
           {action.type === 'conditionBranch' && (
-            <>
-              <select
-                className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
-                value={(action as ConditionBranchAction).paramId}
-                onChange={(e) => onUpdate({ ...action, paramId: e.target.value } as ConditionBranchAction)}
-              >
-                {boardSettings.parameters.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+            <div className="space-y-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-slate-500 font-bold">判定するパラメータと条件</label>
+                <select
+                  className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                  value={(action as ConditionBranchAction).paramId}
+                  onChange={(e) => onUpdate({ ...action, paramId: e.target.value } as ConditionBranchAction)}
+                >
+                  {boardSettings.parameters.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
               <div className="flex items-center gap-2">
                 <select
                   className="w-20 p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
@@ -166,7 +172,12 @@ const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps)
                   onChange={(e) => onUpdate({ ...action, value: Number(e.target.value) } as ConditionBranchAction)}
                 />
               </div>
-            </>
+              <p className="text-xs text-slate-500 bg-blue-50 p-2 rounded leading-relaxed">
+                ※このマスで止まった時、この条件が成立したかどうかが判定されます。
+                <br />現状はプレイ画面に判定結果のログのみ表示されます。
+                <br />(将来的に、条件ごとの専用ルートを自動選択する機能を予定しています)
+              </p>
+            </div>
           )}
 
           {action.type === 'randomBranch' && (
