@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEditorStore } from '../store';
 import {
   Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2,
-  Copy, ClipboardPaste, Rows3, Workflow, CircleDot, PanelTopOpen, Map as MapIcon, Maximize2,
+  Copy, ClipboardPaste, Rows3, Workflow, CircleDot, PanelTopOpen, Map as MapIcon, Maximize2, Magnet,
 } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { validateBoard, type ValidationResult } from '../utils/boardValidation';
@@ -12,8 +12,8 @@ import { importBoardData } from '../utils/boardImport';
 
 export const EditorToolbar = () => {
   const {
-    nodes, edges, past, future, clipboard,
-    undo, redo, copySelected, pasteClipboard, applyLayout, applyTemplate, addArea,
+    nodes, edges, past, future, clipboard, snapToGrid, gridSize,
+    undo, redo, copySelected, pasteClipboard, applyLayout, applyTemplate, addArea, setSnapToGrid, setGridSize, snapSelectedToGrid,
   } = useEditorStore();
   const { fitView } = useReactFlow();
   const [validation, setValidation] = useState<ValidationResult | null>(null);
@@ -143,6 +143,31 @@ export const EditorToolbar = () => {
           >
             <Redo2 className="w-3.5 h-3.5" />
             やり直し
+          </button>
+          <button
+            onClick={() => setSnapToGrid(!snapToGrid)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${
+              snapToGrid ? 'bg-emerald-100 text-emerald-700' : 'bg-white/70 hover:bg-white text-slate-700'
+            }`}
+            title="マスをグリッドに吸着して、ピッタリ配置します"
+          >
+            <Magnet className="w-3.5 h-3.5" />
+            吸着
+          </button>
+          <select
+            value={gridSize}
+            onChange={(event) => setGridSize(Number(event.target.value))}
+            className="rounded-xl bg-white/70 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none"
+            title="グリッド幅"
+          >
+            {[16, 24, 32, 48].map((size) => <option key={size} value={size}>{size}px</option>)}
+          </select>
+          <button
+            onClick={snapSelectedToGrid}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
+            title="選択中のマスを一番近いグリッドへそろえます"
+          >
+            ピッタリ
           </button>
           <div className="w-px h-6 bg-slate-300" />
           <button

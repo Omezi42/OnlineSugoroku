@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { X, MousePointer2, Share2, Sparkles, Trophy, Workflow } from 'lucide-react';
+import { X, MousePointer2, Share2, Sparkles, Trophy, Workflow, Wand2, Volume2 } from 'lucide-react';
 import { GlassCard } from './ui/GlassCard';
 
 interface RulebookModalProps {
@@ -9,28 +9,38 @@ interface RulebookModalProps {
 const sections = [
   {
     icon: MousePointer2,
-    title: '盤面をつくる',
-    body: '左のマスをキャンバスへ置き、線でつなぐだけでルートができます。各マスには説明、画像、色、サイズ、アクションを設定できます。',
+    title: '盤面を作る',
+    body: '左のマスをキャンバスに置き、線でつなぐとルートになります。マスを選ぶと、名前・説明・色・サイズ・画像・イベントを設定できます。',
   },
   {
     icon: Workflow,
     title: 'イベントを組み合わせる',
-    body: 'パラメータ増減、移動、休み、ワープ、条件分岐、ランダム分岐、ミニゲームなどを複数入れて、オリジナルの展開を作れます。',
+    body: 'お金の増減、移動、休み、ワープ、条件分岐、ランダム分岐、奪う、ミニゲームなどを複数並べて、止まった時の演出を作れます。',
+  },
+  {
+    icon: Wand2,
+    title: 'エディタのコツ',
+    body: 'テンプレートで土台を作り、自動整列とグリッド吸着でマスをそろえます。盤面チェックを押すと、スタートやゴール、分岐設定の抜けを確認できます。',
   },
   {
     icon: Share2,
     title: '共有して遊ぶ',
-    body: '盤面を保存するとプレイURLが発行されます。ロビーで名前とアイコンを決め、メンバーがそろったらゲーム開始です。',
+    body: '保存するとプレイ用URLが発行されます。ロビーで名前とアイコンを決め、ホストが開始すると全員の画面が同期されます。',
   },
   {
     icon: Trophy,
     title: '勝利条件',
-    body: 'ゴール順で競うスピード型、または指定ステータスの多さで競うランキング型を選べます。ゴール報酬も設定できます。',
+    body: '早くゴールした順、または指定ステータスの多さでランキングできます。ゴール順位ボーナスも盤面設定から調整できます。',
+  },
+  {
+    icon: Volume2,
+    title: '音量設定',
+    body: 'BGM、効果音、マスター音量をそれぞれ調整できます。公共の場所や通話中でも遊びやすいよう、すぐミュートできます。',
   },
   {
     icon: Sparkles,
-    title: '作り方のコツ',
-    body: 'まずテンプレートを展開し、マス名とイベントを少しずつ差し替えるのがおすすめです。保存前チェックで壊れたルートを確認できます。',
+    title: 'イベントの考え方',
+    body: '良い盤面は「少し得する」「少し困る」「選択する」「一発逆転する」のリズムが大切です。序盤は軽め、終盤は派手めにすると盛り上がります。',
   },
 ];
 
@@ -53,10 +63,10 @@ export const RulebookModal = ({ onClose }: RulebookModalProps) => {
           </button>
 
           <div className="mb-6 pr-10">
-            <p className="text-sm font-bold text-purple-600 mb-2">OnlineSugoroku ルールブック</p>
+            <p className="text-sm font-bold text-purple-600 mb-2">OnlineSugoroku チュートリアル</p>
             <h2 className="text-3xl font-black text-slate-900">作って、共有して、みんなで進む。</h2>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
-              OnlineSugorokuは、自由な盤面を作れるエディタと、URLひとつで遊べる同期プレイを組み合わせたすごろくメーカーです。
+              OnlineSugorokuは、自由な盤面エディタとURLひとつで遊べる同期プレイを組み合わせた、カスタムすごろくメーカーです。
             </p>
           </div>
 

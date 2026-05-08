@@ -1,13 +1,7 @@
 import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import type { HTMLMotionProps } from 'framer-motion';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-// utility for tailwind class merging
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../../lib/cn';
 
 type ButtonVariant = 'primary' | 'secondary' | 'glass' | 'ghost';
 

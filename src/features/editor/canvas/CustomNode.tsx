@@ -1,7 +1,7 @@
 import { Handle, Position } from '@xyflow/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { NodeData } from '../../../types/board';
-import { cn } from '../../../components/ui/Button';
+import { cn } from '../../../lib/cn';
 
 const typeColors: Record<string, string> = {
   start: 'bg-gradient-to-br from-yellow-400 to-yellow-600',

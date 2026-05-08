@@ -19,7 +19,7 @@ export const PlayerStatusPanel = ({
   parameters,
 }: PlayerStatusPanelProps) => {
   return (
-    <GlassCard className="pointer-events-auto p-4 w-72 max-h-[70vh] overflow-y-auto">
+    <GlassCard className="pointer-events-auto p-3 sm:p-4 w-[48vw] min-w-40 sm:w-72 max-h-[42vh] sm:max-h-[70vh] overflow-y-auto">
       <h2 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
         <span>👥</span> プレイヤー
       </h2>

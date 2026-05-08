@@ -12,7 +12,7 @@ const nodeTypes: NodeTypes = {
 };
 
 export const Canvas = () => {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useEditorStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, snapToGrid, gridSize } = useEditorStore();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
 
@@ -65,6 +65,8 @@ export const Canvas = () => {
         onDragOver={onDragOver}
         onDrop={onDrop}
         fitView
+        snapToGrid={snapToGrid}
+        snapGrid={[gridSize, gridSize]}
         selectionOnDrag
         multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
         connectionLineStyle={{ stroke: '#a855f7', strokeWidth: 3 }}
@@ -73,7 +75,7 @@ export const Canvas = () => {
           animated: true,
         }}
       >
-        <Background gap={16} size={1} color="#e2e8f0" />
+        <Background gap={gridSize} size={1} color="#e2e8f0" />
         <Controls className="bg-white/80 backdrop-blur-md rounded-xl shadow-lg border-none" />
         <MiniMap className="bg-white/80 backdrop-blur-md rounded-xl shadow-lg" />
       </ReactFlow>

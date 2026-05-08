@@ -7,7 +7,7 @@ import { BookOpen, Loader2 } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 
 import { useGameSync } from '../../hooks/useGameSync';
-import { loadBoard } from '../../services/boardService';
+import { loadBoard, markBoardPlayed } from '../../services/boardService';
 import type { BoardData } from '../../services/boardService';
 import { createGameRoom, joinGameRoom, updateGameState } from '../../services/gameService';
 import { CustomNode } from '../editor/canvas/CustomNode';
@@ -22,6 +22,8 @@ import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { HostControls } from './components/HostControls';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { RulebookModal } from '../../components/RulebookModal';
+import { AudioMixer } from './components/AudioMixer';
+import { useSoundSettings } from '../../hooks/useSoundSettings';
 import type { Player } from '../../types/game';
 import type { NodeData, MinigameAction, StealAction } from '../../types/board';
 import {
@@ -40,6 +42,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const [showResult, setShowResult] = useState(false);
   const [showRulebook, setShowRulebook] = useState(false);
   const [selectedNodeData, setSelectedNodeData] = useState<NodeData | null>(null);
+  const { settings: soundSettings, setSettings: setSoundSettings, playSe } = useSoundSettings();
   const navigate = useNavigate();
 
   // 初回参加処理
@@ -48,6 +51,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       const board = await loadBoard(boardId);
       if (!board) { alert('盤面が見つかりません'); return; }
       setBoardData(board);
+      markBoardPlayed(boardId).catch(() => undefined);
 
       // sessionStorageでプレイヤーIDを保持（リロード対策）
       let pId = sessionStorage.getItem(`player-${roomId}`);
@@ -190,6 +194,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     if (!gameState || !boardData) return;
     const currentPid = gameState.playerOrder[gameState.currentTurnIndex];
     if (currentPid !== localPlayerId) return;
+    playSe('dice');
 
     const player = gameState.players[currentPid];
     const logs = [...gameState.logs, createLog(`🎲 ${player.name} が ${result} を出した！`, 'move')];
@@ -213,7 +218,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
     // 移動完了 → マスのアクション処理へ
     await processLanding(player, moveResult.finalNodeId, logs);
-  }, [gameState, boardData, roomId, localPlayerId]);
+  }, [gameState, boardData, roomId, localPlayerId, playSe]);
 
   // 分岐選択の処理
   const handleBranchSelect = useCallback(async (_edgeId: string, targetNodeId: string) => {
@@ -387,7 +392,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     const action = interaction.action as StealAction;
     const player = gameState.players[interaction.playerId];
     const targetPlayer = gameState.players[targetPlayerId];
-    let updatedPlayer = { ...player, params: { ...player.params } };
+    const updatedPlayer = { ...player, params: { ...player.params } };
     const logs = [...gameState.logs];
 
     const stolen = Math.min(action.amount, targetPlayer.params[action.paramId] || 0);
@@ -504,9 +509,9 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
       {/* UI オーバーレイ */}
       {gameState.status === 'playing' && (
-        <div className="absolute inset-0 z-10 pointer-events-none p-4 flex flex-col justify-between">
+        <div className="absolute inset-0 z-10 pointer-events-none p-2 sm:p-4 flex flex-col justify-between">
           {/* 上部 */}
-          <div className="flex justify-between items-start gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4">
             <div className="pointer-events-auto">
               <PlayerStatusPanel
                 players={gameState.players}
@@ -517,7 +522,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
               />
             </div>
 
-            <GlassCard className="pointer-events-auto p-4 w-72 max-h-64 overflow-y-auto">
+            <GlassCard className="pointer-events-auto hidden sm:block p-4 w-72 max-h-64 overflow-y-auto">
               <h3 className="font-bold text-slate-800 mb-2 text-sm">📜 ゲームログ</h3>
               <div className="space-y-1.5 flex flex-col-reverse">
                 {gameState.logs.slice(-20).reverse().map((log) => (
@@ -533,7 +538,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
             </GlassCard>
           </div>
 
-          <div className="pointer-events-auto absolute right-4 top-72 flex flex-col gap-3">
+          <div className="pointer-events-auto absolute right-2 top-2 sm:right-4 sm:top-72 flex max-w-[46vw] sm:max-w-none flex-col gap-2 sm:gap-3">
             <button
               onClick={() => setShowRulebook(true)}
               className="rounded-2xl bg-white/90 px-4 py-2 text-sm font-bold text-slate-700 shadow-lg backdrop-blur-md hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2"
@@ -550,12 +555,13 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
               onSkipTurn={handleSkipTurn}
               onRemovePlayer={handleRemovePlayer}
             />
+            <AudioMixer settings={soundSettings} onChange={setSoundSettings} />
           </div>
 
           {/* 下部：アクションエリア */}
-          <div className="flex justify-center mb-6 pointer-events-auto">
+          <div className="flex justify-center mb-3 sm:mb-6 pointer-events-auto">
             <div className="flex flex-col items-center gap-3">
-              <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full shadow-lg font-bold text-slate-800">
+              <div className="max-w-[92vw] bg-white/90 backdrop-blur-md px-4 sm:px-6 py-2 rounded-2xl sm:rounded-full shadow-lg font-bold text-slate-800 text-sm sm:text-base text-center">
                 {isMyTurn ? (
                   <span className="text-purple-600">🎲 あなたのターン！サイコロを振ろう</span>
                 ) : (

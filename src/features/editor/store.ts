@@ -16,6 +16,8 @@ interface EditorState extends HistorySnapshot {
   past: HistorySnapshot[];
   future: HistorySnapshot[];
   clipboard: { nodes: Node<NodeData>[]; edges: Edge[] } | null;
+  snapToGrid: boolean;
+  gridSize: number;
 
   onNodesChange: (changes: NodeChange<Node<NodeData>>[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
@@ -33,6 +35,9 @@ interface EditorState extends HistorySnapshot {
   applyLayout: (mode: LayoutMode) => void;
   applyTemplate: (template: TemplateType) => void;
   addArea: () => void;
+  setSnapToGrid: (enabled: boolean) => void;
+  setGridSize: (size: number) => void;
+  snapSelectedToGrid: () => void;
   resetStore: () => void;
 }
 
@@ -182,6 +187,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   past: [],
   future: [],
   clipboard: null,
+  snapToGrid: true,
+  gridSize: 24,
 
   onNodesChange: (changes) => {
     const shouldRecord = changes.some((change) => change.type === 'remove' || (change.type === 'position' && !change.dragging));
@@ -316,6 +323,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
+  setSnapToGrid: (enabled) => set({ snapToGrid: enabled }),
+
+  setGridSize: (size) => set({ gridSize: Math.max(8, Math.min(96, size)) }),
+
+  snapSelectedToGrid: () => {
+    set((state) => ({
+      ...pushHistory(state),
+      nodes: state.nodes.map((node) => {
+        if (!node.selected || node.data.nodeType === 'area') return node;
+        const grid = state.gridSize;
+        return {
+          ...node,
+          position: {
+            x: Math.round(node.position.x / grid) * grid,
+            y: Math.round(node.position.y / grid) * grid,
+          },
+        };
+      }),
+    }));
+  },
+
   resetStore: () => {
     set({
       nodes: initialNodes,
@@ -324,6 +352,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       past: [],
       future: [],
       clipboard: null,
+      snapToGrid: true,
+      gridSize: 24,
     });
   },
 }));

@@ -10,7 +10,6 @@ export const useGameSync = (roomId: string) => {
   useEffect(() => {
     if (!roomId) return;
 
-    setIsLoading(true);
     const unsubscribe = subscribeToGameState(
       roomId,
       (state) => {
