@@ -39,7 +39,7 @@ function validateBoard(nodes: any[], edges: any[]): ValidationResult {
 }
 
 export const EditorToolbar = () => {
-  const { nodes, edges, boardSettings } = useEditorStore();
+  const { nodes, edges } = useEditorStore();
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,6 +47,7 @@ export const EditorToolbar = () => {
 
   // JSONエクスポート
   const handleExport = () => {
+    const { boardSettings } = useEditorStore.getState();
     const data = {
       version: 1,
       exportedAt: new Date().toISOString(),

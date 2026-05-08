@@ -8,13 +8,32 @@ interface DiceProps {
   disabled?: boolean;
 }
 
+function rollSingleDice(diceType: DiceType): number {
+  switch (diceType) {
+    case '1d4': return Math.floor(Math.random() * 4) + 1;
+    case '1d6': return Math.floor(Math.random() * 6) + 1;
+    case '2d6': return Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
+    case '1d10': return Math.floor(Math.random() * 10) + 1;
+    case 'coin': return Math.floor(Math.random() * 2) + 1;
+    default: return Math.floor(Math.random() * 6) + 1;
+  }
+}
+
+function getDiceLabel(diceType: DiceType): string {
+  switch (diceType) {
+    case '1d4': return '1d4';
+    case '1d6': return '1d6';
+    case '2d6': return '2d6';
+    case '1d10': return '1d10';
+    case 'coin': return 'コイン';
+    default: return '1d6';
+  }
+}
+
 export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) => {
   const [result, setResult] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const controls = useAnimation();
-
-  // 単純化のため、1d6（6面ダイス）を基準に実装
-  const maxNumber = diceType === '1d6' ? 6 : diceType === '1d10' ? 10 : diceType === '1d4' ? 4 : 6;
 
   const handleRoll = async () => {
     if (disabled || isRolling) return;
@@ -34,7 +53,7 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
       }
     });
 
-    const rollResult = Math.floor(Math.random() * maxNumber) + 1;
+    const rollResult = rollSingleDice(diceType);
     setResult(rollResult);
     setIsRolling(false);
     
@@ -48,7 +67,9 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
     <div className="flex flex-col items-center justify-center gap-4">
       <motion.div
         animate={controls}
-        className="w-24 h-24 bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] flex items-center justify-center relative cursor-pointer border-4 border-slate-100 perspective-1000"
+        className={`w-24 h-24 bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] flex items-center justify-center relative border-4 border-slate-100 perspective-1000 ${
+          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+        }`}
         style={{ transformStyle: 'preserve-3d' }}
         onClick={handleRoll}
         whileHover={!disabled && !isRolling ? { scale: 1.05 } : {}}
@@ -59,7 +80,10 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
         ) : result !== null ? (
           <span className="text-5xl font-black text-slate-800">{result}</span>
         ) : (
-          <span className="text-xl font-bold text-slate-400">Roll!</span>
+          <div className="flex flex-col items-center">
+            <span className="text-xl font-bold text-slate-400">Roll!</span>
+            <span className="text-[10px] text-slate-300">{getDiceLabel(diceType)}</span>
+          </div>
         )}
       </motion.div>
       

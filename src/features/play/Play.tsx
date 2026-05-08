@@ -243,6 +243,8 @@ function PlayInner({ roomId }: { roomId: string }) {
     // 次のターンインデックスを計算（休み/ゴール済みをスキップ）
     let nextIdx = (gameState.currentTurnIndex + 1) % gameState.playerOrder.length;
     let safety = 0;
+    const restUpdates: Record<string, any> = {}; // 休みターン消費をまとめる
+
     while (safety < gameState.playerOrder.length) {
       const nextPid = gameState.playerOrder[nextIdx];
       const nextP = nextPid === updatedPlayer.id ? updatedPlayer : gameState.players[nextPid];
@@ -255,9 +257,7 @@ function PlayInner({ roomId }: { roomId: string }) {
 
       if (nextP && nextP.restTurns > 0) {
         logs.push(createLog(`😴 ${nextP.name} は休みのためスキップ`, 'system'));
-        await updateGameState(roomId, {
-          [`players.${nextPid}.restTurns`]: nextP.restTurns - 1,
-        } as any);
+        restUpdates[`players.${nextPid}.restTurns`] = nextP.restTurns - 1;
         nextIdx = (nextIdx + 1) % gameState.playerOrder.length;
         safety++;
         continue;
@@ -271,6 +271,7 @@ function PlayInner({ roomId }: { roomId: string }) {
       [`players.${updatedPlayer.id}`]: updatedPlayer,
       currentTurnIndex: nextIdx,
       pendingInteraction: null,
+      ...restUpdates,
     } as any);
   };
 
