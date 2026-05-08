@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange, Connection, addEdge } from '@xyflow/react';
-import { BoardSettings, NodeData } from '../../types/board';
+import { applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
+import type { Node, Edge, NodeChange, EdgeChange, Connection } from '@xyflow/react';
+import type { BoardSettings, NodeData } from '../../types/board';
 
 interface EditorState {
   nodes: Node<NodeData>[];

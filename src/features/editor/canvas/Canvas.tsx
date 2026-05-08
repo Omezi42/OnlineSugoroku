@@ -1,12 +1,12 @@
 import { useCallback, useRef } from 'react';
-import { ReactFlow, Background, Controls, MiniMap, ReactFlowProvider, NodeTypes } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { useEditorStore } from '../store';
 import { CustomNode } from './CustomNode';
-import { NodeType, NodeSize } from '../../../types/board';
+import type { NodeType, NodeSize } from '../../../types/board';
 
-const nodeTypes: NodeTypes = {
+const nodeTypes: any = {
   custom: CustomNode,
 };
 

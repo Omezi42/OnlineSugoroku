@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GameState } from '../types/game';
+import type { GameState } from '../types/game';
 import { subscribeToGameState } from '../services/gameService';
 
 export const useGameSync = (roomId: string) => {

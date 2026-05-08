@@ -1,4 +1,4 @@
-import { NodeType } from '../../../types/board';
+import type { NodeType } from '../../../types/board';
 import { GlassCard } from '../../../components/ui/GlassCard';
 
 export const Sidebar = () => {

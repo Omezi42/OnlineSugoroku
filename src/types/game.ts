@@ -1,4 +1,4 @@
-import { Action } from './board';
+import type { Action } from './board';
 
 // プレイヤー情報
 export interface Player {

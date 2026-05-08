@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Canvas } from './canvas/Canvas';
 import { Sidebar } from './panels/Sidebar';
 import { NodeConfigPanel } from './panels/NodeConfigPanel';
@@ -11,7 +10,6 @@ export default function Editor() {
   const { nodes, edges, boardSettings } = useEditorStore();
   const [isSaving, setIsSaving] = useState(false);
   const [boardName, setBoardName] = useState('名称未設定のすごろく');
-  const navigate = useNavigate();
 
   const handleSave = async () => {
     try {

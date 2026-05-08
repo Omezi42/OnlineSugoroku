@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Play, PenTool, Sparkles, Users } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -7,7 +8,7 @@ import { GlassCard } from '../../components/ui/GlassCard';
 export default function Home() {
   const navigate = useNavigate();
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
@@ -17,7 +18,7 @@ export default function Home() {
     },
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,

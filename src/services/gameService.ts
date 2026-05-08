@@ -1,6 +1,6 @@
 import { doc, setDoc, updateDoc, onSnapshot, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { db } from './firebase';
-import { GameState, Player, LogEntry } from '../types/game';
+import type { GameState, Player } from '../types/game';
 
 const GAMES_COLLECTION = 'games';
 

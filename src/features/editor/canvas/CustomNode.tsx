@@ -1,5 +1,5 @@
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { NodeData } from '../../../types/board';
+import { Handle, Position } from '@xyflow/react';
+import type { NodeData } from '../../../types/board';
 import { cn } from '../../../components/ui/Button';
 
 const typeColors = {
@@ -26,7 +26,7 @@ const sizeClasses = {
   large: 'w-40 h-40 text-lg',
 };
 
-export const CustomNode = ({ data, selected }: NodeProps<NodeData>) => {
+export const CustomNode = ({ data, selected }: { data: NodeData, selected?: boolean }) => {
   return (
     <div
       className={cn(

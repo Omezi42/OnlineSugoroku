@@ -1,24 +1,24 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ReactFlow, ReactFlowProvider, Background, NodeTypes } from '@xyflow/react';
+import { useParams } from 'react-router-dom';
+import { ReactFlow, ReactFlowProvider, Background } from '@xyflow/react';
 import { Loader2 } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 
 import { useGameSync } from '../../hooks/useGameSync';
-import { loadBoard, BoardData } from '../../services/boardService';
+import { loadBoard } from '../../services/boardService';
+import type { BoardData } from '../../services/boardService';
 import { createGameRoom, joinGameRoom, updateGameState } from '../../services/gameService';
 import { CustomNode } from '../editor/canvas/CustomNode';
 import { Dice } from './components/Dice';
 import { GlassCard } from '../../components/ui/GlassCard';
-import { Button } from '../../components/ui/Button';
-import { Player } from '../../types/game';
+import type { Player } from '../../types/game';
 
-const nodeTypes: NodeTypes = {
+const nodeTypes: any = {
   custom: CustomNode,
 };
 
 function PlayInner({ roomId }: { roomId: string }) {
-  const { gameState, isLoading, error } = useGameSync(roomId);
+  const { gameState, isLoading } = useGameSync(roomId);
   const [boardData, setBoardData] = useState<BoardData | null>(null);
   const [localPlayerId, setLocalPlayerId] = useState<string>('');
 

@@ -1,7 +1,6 @@
 import { useEditorStore } from '../store';
 import { GlassCard } from '../../../components/ui/GlassCard';
-import { NodeSize } from '../../../types/board';
-import { X } from 'lucide-react';
+import type { NodeSize } from '../../../types/board';
 
 export const NodeConfigPanel = () => {
   const { nodes, updateNodeData } = useEditorStore();

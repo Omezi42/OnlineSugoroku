@@ -143,7 +143,7 @@ export interface AreaDef {
 }
 
 // React Flow ノードデータのカスタムプロパティ
-export interface NodeData {
+export interface NodeData extends Record<string, unknown> {
   label: string;
   description: string;
   nodeType: NodeType;

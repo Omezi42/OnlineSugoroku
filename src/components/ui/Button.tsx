@@ -1,5 +1,6 @@
-import { ReactNode, ButtonHTMLAttributes } from 'react';
-import { motion, HTMLMotionProps } from 'framer-motion';
+import type { ReactNode } from 'react';
+import { motion } from 'framer-motion';
+import type { HTMLMotionProps } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 

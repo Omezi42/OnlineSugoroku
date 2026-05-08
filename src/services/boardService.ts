@@ -1,7 +1,7 @@
 import { collection, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
-import { Node, Edge } from '@xyflow/react';
-import { BoardSettings, NodeData } from '../types/board';
+import type { Node, Edge } from '@xyflow/react';
+import type { BoardSettings, NodeData } from '../types/board';
 
 export interface BoardData {
   id?: string; // 保存時に生成
