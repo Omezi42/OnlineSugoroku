@@ -130,25 +130,6 @@ export const BoardSettingsPanel = () => {
             )}
           </div>
 
-          {/* === 背景 === */}
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 mb-2">🎨 背景パターン</h3>
-            <div className="flex gap-2">
-              {(['dot', 'grid', 'none'] as const).map((bg) => (
-                <button
-                  key={bg}
-                  onClick={() => updateBoardSettings({ background: bg })}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                    boardSettings.background === bg
-                      ? 'bg-purple-100 text-purple-700 ring-2 ring-purple-400'
-                      : 'bg-white/50 text-slate-600 hover:bg-white/80'
-                  }`}
-                >
-                  {bg === 'dot' ? 'ドット' : bg === 'grid' ? 'グリッド' : '無地'}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* === ゴール報酬 === */}
           <div>

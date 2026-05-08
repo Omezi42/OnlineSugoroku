@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Play, PenTool, Sparkles, Users, X, ArrowRight, GalleryHorizontalEnd, Loader2, Pencil, BookOpen, Info, Search, SlidersHorizontal } from 'lucide-react';
+import { Play, PenTool, Sparkles, Users, X, ArrowRight, GalleryHorizontalEnd, Loader2, Pencil, BookOpen, Info, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { GlassCard } from '../../components/ui/GlassCard';
-import { listBoards, listMyBoards } from '../../services/boardService';
+import { listBoards, listMyBoards, deleteBoard } from '../../services/boardService';
 import type { BoardData, BoardSort } from '../../services/boardService';
 import { RulebookModal } from '../../components/RulebookModal';
 import { AuthPanel } from '../auth/AuthPanel';
@@ -88,7 +88,19 @@ export default function Home() {
     }
   };
 
-  const renderBoardCard = (board: BoardData, index: number) => (
+  const handleDeleteBoard = async (board: BoardData) => {
+    if (!board.id) return;
+    if (!window.confirm(`「${board.name || '無題のすごろく'}」を削除しますか？\nこの操作は取り消せません。`)) return;
+    try {
+      await deleteBoard(board.id);
+      setMyBoards(prev => prev.filter(b => b.id !== board.id));
+      setBoards(prev => prev.filter(b => b.id !== board.id));
+    } catch {
+      alert('削除に失敗しました。');
+    }
+  };
+
+  const renderBoardCard = (board: BoardData, index: number, showDelete = false) => (
     <GlassCard key={board.id || `${board.name}-${index}`} hoverEffect className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -102,8 +114,19 @@ export default function Home() {
             <span className="rounded-full bg-pink-50 px-2 py-1 text-pink-700">プレイ {board.playCount || 0}</span>
           </div>
         </div>
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white flex items-center justify-center shadow-md">
-          <Play className="w-5 h-5" />
+        <div className="flex flex-col gap-2 items-end">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white flex items-center justify-center shadow-md">
+            <Play className="w-5 h-5" />
+          </div>
+          {showDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDeleteBoard(board); }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+              title="盤面を削除"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
       <div className="mt-4 grid grid-cols-3 gap-2">
@@ -144,9 +167,25 @@ export default function Home() {
               <Button size="lg" icon={<PenTool className="w-5 h-5" />} onClick={() => navigate('/editor')} className="w-full sm:w-auto">
                 空から作る
               </Button>
-              <Button variant="glass" size="lg" icon={<Sparkles className="w-5 h-5" />} onClick={() => navigate('/editor?template=party')} className="w-full sm:w-auto text-pink-600 border-pink-200 hover:bg-pink-50">
-                テンプレから
-              </Button>
+              <div className="relative group w-full sm:w-auto">
+                <Button variant="glass" size="lg" icon={<Sparkles className="w-5 h-5" />} className="w-full sm:w-auto text-pink-600 border-pink-200 hover:bg-pink-50">
+                  テンプレから作る ▼
+                </Button>
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-30 p-2 flex flex-col gap-1">
+                  <button onClick={() => navigate('/editor?template=party')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-pink-50 transition-colors">
+                    <span className="font-bold text-slate-800">🎉 パーティー</span>
+                    <span className="block text-xs text-slate-500 mt-0.5">ミニゲームやワープ満載の楽しいルート</span>
+                  </button>
+                  <button onClick={() => navigate('/editor?template=branch')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-blue-50 transition-colors">
+                    <span className="font-bold text-slate-800">🔀 分岐ルート</span>
+                    <span className="block text-xs text-slate-500 mt-0.5">条件分岐やランダム分岐のある複雑なルート</span>
+                  </button>
+                  <button onClick={() => navigate('/editor?template=long')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-purple-50 transition-colors">
+                    <span className="font-bold text-slate-800">🏔️ ロング</span>
+                    <span className="block text-xs text-slate-500 mt-0.5">15マスの蛇行ルートでじっくりプレイ</span>
+                  </button>
+                </div>
+              </div>
               <Button variant="glass" size="lg" icon={<Play className="w-5 h-5" />} onClick={() => setShowJoinModal(true)} className="w-full sm:w-auto">
                 ルームに参加
               </Button>
@@ -177,7 +216,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {myBoards.length === 0 ? (
               <GlassCard className="md:col-span-4 p-5 text-center text-sm text-slate-500">まだ自分の盤面がありません。最初の盤面を作ってみましょう。</GlassCard>
-            ) : myBoards.map(renderBoardCard)}
+            ) : myBoards.map((board, index) => renderBoardCard(board, index, true))}
           </div>
         </motion.section>
 
@@ -217,7 +256,7 @@ export default function Home() {
             {!isGalleryLoading && boards.length === 0 && (
               <GlassCard className="md:col-span-3 p-5 text-center text-sm text-slate-500">条件に合う公開盤面がありません。</GlassCard>
             )}
-            {!isGalleryLoading && boards.map(renderBoardCard)}
+            {!isGalleryLoading && boards.map((board, index) => renderBoardCard(board, index))}
           </div>
         </motion.section>
       </motion.div>

@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { ReactFlow, Background, Controls, MiniMap, useReactFlow, MarkerType } from '@xyflow/react';
+import { ReactFlow, Background, BackgroundVariant, Controls, MiniMap, useReactFlow, MarkerType } from '@xyflow/react';
 import type { NodeTypes } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -81,7 +81,7 @@ export const Canvas = () => {
           },
         }}
       >
-        <Background gap={gridSize} size={1} color="#e2e8f0" />
+        <Background gap={gridSize} size={snapToGrid ? 0.5 : 1} color={snapToGrid ? '#c4b5fd' : '#e2e8f0'} variant={snapToGrid ? BackgroundVariant.Lines : BackgroundVariant.Dots} />
         <Controls className="bg-white/80 backdrop-blur-md rounded-xl shadow-lg border-none" />
         <MiniMap className="bg-white/80 backdrop-blur-md rounded-xl shadow-lg" />
       </ReactFlow>

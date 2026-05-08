@@ -27,7 +27,7 @@ import { useSoundSettings } from '../../hooks/useSoundSettings';
 import type { Player } from '../../types/game';
 import type { NodeData, MinigameAction, StealAction } from '../../types/board';
 import {
-  movePlayer, movePlayerBack, processAction, checkGoal, checkGameEnd,
+  movePlayer, movePlayerBack, processAction, checkGoal,
   calculateRanking, createLog, getNodeById,
 } from '../../services/gameEngine';
 
@@ -179,7 +179,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     if (path.length === 0) return;
     for (const stepNodeId of path) {
       setAnimatingPlayer({ id: playerId, position: stepNodeId });
-      playSe('dice'); // 歩く音の代わりにサイコロ音などを鳴らす
+      playSe('step');
       await new Promise(r => setTimeout(r, 400));
     }
     setAnimatingPlayer(null);
@@ -318,6 +318,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       updatedPlayer.hasGoal = true;
       updatedPlayer.rank = goalOrder;
       logs.push(createLog(`🏁 ${player.name} が ${goalOrder}位でゴール！！`, 'action'));
+      playSe('goal');
     }
 
     // マスのアクション処理
@@ -327,6 +328,12 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
         const result = processAction(action, updatedPlayer, gameState, boardData.nodes, boardData.edges, boardData.settings);
         updatedPlayer = result.updatedPlayer;
         logs.push(...result.logs);
+
+        // アクション種類に応じたSE
+        if (action.type === 'paramChange' && action.amount > 0) playSe('coin');
+        else if (action.type === 'paramChange' && action.amount < 0) playSe('lose');
+        else if (action.type === 'minigame' || action.type === 'steal') playSe('event');
+        else if (action.type === 'warp') playSe('event');
 
         // ペンディング操作（ミニゲームやスティール）が必要な場合
         if (result.pendingInteraction) {
@@ -402,14 +409,18 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
     const updatedPlayers = { ...gameState.players, [updatedPlayer.id]: updatedPlayer };
 
-    // ゲーム終了判定
-    if (checkGameEnd({ ...gameState, players: updatedPlayers })) {
+    // ゲーム終了判定（1人プレイでもゴール=終了）
+    const allGoaled = Object.values(updatedPlayers).every(p => p.hasGoal);
+    if (allGoaled) {
+      playSe('goal');
       await updateGameState(roomId, {
         logs: [...logs, createLog('🏆 全員ゴール！ゲーム終了！')],
         [`players.${updatedPlayer.id}`]: updatedPlayer,
         status: 'finished',
         pendingInteraction: null,
       } as any);
+      // 即座にリザルトボタンを表示（Firestore同期待ちを回避）
+      setShowResultButton(true);
       return;
     }
 
@@ -598,7 +609,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       </AnimatePresence>
 
       {/* UI オーバーレイ */}
-      {gameState.status === 'playing' && (
+      {(gameState.status === 'playing' || gameState.status === 'finished') && (
         <div className="absolute inset-0 z-10 pointer-events-none p-2 sm:p-4 flex flex-col justify-between">
           <ToastNotification toasts={toasts} removeToast={(id) => setToasts(ts => ts.filter(t => t.id !== id))} />
 
@@ -620,13 +631,13 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
               </AnimatePresence>
               <button
                 onClick={() => setShowPlayerPanel(!showPlayerPanel)}
-                className="absolute -bottom-8 left-2 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full shadow-md text-xs font-bold text-slate-600 border border-slate-200"
+                className="mt-2 ml-2 pointer-events-auto bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow-md text-xs font-bold text-slate-600 border border-slate-200 hover:bg-slate-50"
               >
                 {showPlayerPanel ? 'プレイヤー窓を隠す' : 'プレイヤー窓を表示'}
               </button>
             </div>
 
-            <div className="pointer-events-auto hidden sm:block relative">
+            <div className="pointer-events-auto hidden sm:flex flex-col items-end relative">
               <AnimatePresence>
                 {showLogPanel && (
                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
@@ -649,14 +660,14 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
               </AnimatePresence>
               <button
                 onClick={() => setShowLogPanel(!showLogPanel)}
-                className="absolute -bottom-8 right-2 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full shadow-md text-xs font-bold text-slate-600 border border-slate-200"
+                className="mt-2 mr-2 pointer-events-auto bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow-md text-xs font-bold text-slate-600 border border-slate-200 hover:bg-slate-50"
               >
                 {showLogPanel ? 'ログを隠す' : 'ログを表示'}
               </button>
             </div>
           </div>
 
-          <div className="pointer-events-auto absolute right-2 top-2 sm:right-4 sm:top-4 flex flex-col gap-2 items-end">
+          <div className="pointer-events-auto absolute right-2 top-16 sm:right-4 sm:top-16 flex flex-col gap-2 items-end z-20">
             <div className="flex gap-2">
               <button
                 onClick={() => setShowRuleModal(true)}

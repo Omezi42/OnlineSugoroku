@@ -5,6 +5,14 @@ import { GlassCard } from '../../../components/ui/GlassCard';
 import { PlayerIcon } from '../../../components/ui/PlayerIcon';
 import type { Player } from '../../../types/game';
 
+interface Award {
+  emoji: string;
+  title: string;
+  playerName: string;
+  playerIcon: string;
+  detail: string;
+}
+
 interface ResultScreenProps {
   rankings: { playerId: string; rank: number; value: number }[];
   players: Record<string, Player>;
@@ -46,6 +54,41 @@ const Confetti = () => {
   );
 };
 
+// アワードの計算ロジック
+function calculateAwards(players: Record<string, Player>): Award[] {
+  const playerList = Object.values(players);
+  if (playerList.length < 2) return [];
+
+  const awards: Award[] = [];
+
+  // 大富豪: 最終的に一番お金を持っている人
+  const richest = [...playerList].sort((a, b) => (b.params.money || 0) - (a.params.money || 0))[0];
+  if (richest && (richest.params.money || 0) > 0) {
+    awards.push({
+      emoji: '💰',
+      title: '大富豪',
+      playerName: richest.name,
+      playerIcon: richest.icon,
+      detail: `最終所持金 ${richest.params.money || 0}`,
+    });
+  }
+
+  // 無一文: 一番お金が少ない人（マイナスなら浪費家）
+  const poorest = [...playerList].sort((a, b) => (a.params.money || 0) - (b.params.money || 0))[0];
+  if (poorest && poorest.id !== richest?.id) {
+    const money = poorest.params.money || 0;
+    awards.push({
+      emoji: money < 0 ? '🔥' : '😢',
+      title: money < 0 ? '浪費家' : '倹約家',
+      playerName: poorest.name,
+      playerIcon: poorest.icon,
+      detail: `最終所持金 ${money}`,
+    });
+  }
+
+  return awards;
+}
+
 const medals = ['🥇', '🥈', '🥉'];
 
 const containerVariants: Variants = {
@@ -60,6 +103,7 @@ const itemVariants: Variants = {
 
 export const ResultScreen = ({ rankings, players, winConditionLabel, onClose }: ResultScreenProps) => {
   const [showConfetti, setShowConfetti] = useState(true);
+  const awards = calculateAwards(players);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowConfetti(false), 5000);
@@ -67,7 +111,7 @@ export const ResultScreen = ({ rankings, players, winConditionLabel, onClose }: 
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-purple-900/90 via-pink-900/70 to-blue-900/90 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-purple-900/90 via-pink-900/70 to-blue-900/90 backdrop-blur-md overflow-y-auto py-8">
       {showConfetti && <Confetti />}
 
       <motion.div
@@ -87,7 +131,7 @@ export const ResultScreen = ({ rankings, players, winConditionLabel, onClose }: 
             <p className="text-sm text-slate-500">{winConditionLabel}</p>
           </motion.div>
 
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-3 mb-8">
+          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-3 mb-6">
             {rankings.map((r) => {
               const player = players[r.playerId];
               if (!player) return null;
@@ -110,10 +154,12 @@ export const ResultScreen = ({ rankings, players, winConditionLabel, onClose }: 
                   <span className="text-3xl w-10 text-center">
                     {isTop3 ? medals[r.rank - 1] : `${r.rank}`}
                   </span>
-                  <div className="flex items-center gap-3 w-48 truncate">
-                  <PlayerIcon icon={player.icon} size="md" />
-                  <span className="font-bold text-slate-700 truncate">{player.name}</span>
-                    <p className="text-xs text-slate-500">スコア: {r.value}</p>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <PlayerIcon icon={player.icon} size="md" />
+                    <div className="min-w-0">
+                      <span className="font-bold text-slate-700 truncate block">{player.name}</span>
+                      <p className="text-xs text-slate-500">スコア: {r.value}</p>
+                    </div>
                   </div>
                   {r.rank === 1 && (
                     <motion.span
@@ -128,6 +174,31 @@ export const ResultScreen = ({ rankings, players, winConditionLabel, onClose }: 
               );
             })}
           </motion.div>
+
+          {/* アワードセクション */}
+          {awards.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.2 }}
+              className="mb-6"
+            >
+              <h2 className="text-sm font-bold text-slate-500 mb-3 text-center">🏅 スペシャルアワード</h2>
+              <div className="grid grid-cols-2 gap-2">
+                {awards.map((award, i) => (
+                  <div key={i} className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-3 text-center border border-purple-100">
+                    <span className="text-2xl block mb-1">{award.emoji}</span>
+                    <p className="text-xs font-bold text-purple-700">{award.title}</p>
+                    <div className="flex items-center justify-center gap-1.5 mt-1.5">
+                      <PlayerIcon icon={award.playerIcon} size="sm" />
+                      <span className="text-sm font-bold text-slate-700 truncate">{award.playerName}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">{award.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
 
           <motion.button
             initial={{ opacity: 0 }}

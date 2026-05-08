@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDoc, getDocs, query, where, limit, serverTimestamp, increment } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, where, limit, serverTimestamp, increment } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Node, Edge } from '@xyflow/react';
 import type { BoardSettings, NodeData } from '../types/board';
@@ -135,4 +135,9 @@ export const canEditBoard = (board: BoardData, userId?: string | null, localOwne
 export const markBoardPlayed = async (boardId: string) => {
   const docRef = doc(db, BOARDS_COLLECTION, boardId);
   await setDoc(docRef, { playCount: increment(1), updatedAt: serverTimestamp() }, { merge: true });
+};
+
+export const deleteBoard = async (boardId: string) => {
+  const docRef = doc(db, BOARDS_COLLECTION, boardId);
+  await deleteDoc(docRef);
 };
