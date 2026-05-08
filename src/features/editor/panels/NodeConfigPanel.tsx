@@ -1,18 +1,37 @@
 import { useEditorStore } from '../store';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import type { NodeSize } from '../../../types/board';
+import { ActionEditor } from './ActionEditor';
 
 export const NodeConfigPanel = () => {
   const { nodes, updateNodeData } = useEditorStore();
   
-  // React Flow で selected = true になっているノードを探す
   const selectedNode = nodes.find(n => n.selected);
-
-  if (!selectedNode) {
-    return null;
-  }
-
+  if (!selectedNode) return null;
   const { id, data } = selectedNode;
+
+  // 画像アップロード処理
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // 画像を圧縮してBase64で保存（簡易版）
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxSize = 200;
+        let w = img.width, h = img.height;
+        if (w > h) { h = (h / w) * maxSize; w = maxSize; }
+        else { w = (w / h) * maxSize; h = maxSize; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+        updateNodeData(id, { image: canvas.toDataURL('image/jpeg', 0.7) });
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="absolute right-4 top-4 bottom-4 w-80 z-10">
@@ -22,6 +41,7 @@ export const NodeConfigPanel = () => {
         </div>
 
         <div className="space-y-5">
+          {/* ラベル */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">ラベル (タイトル)</label>
             <input 
@@ -33,16 +53,18 @@ export const NodeConfigPanel = () => {
             />
           </div>
 
+          {/* 詳細テキスト */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">詳細テキスト</label>
             <textarea 
-              className="w-full p-2 rounded-lg border border-slate-200 bg-white/50 focus:ring-2 focus:ring-purple-400 outline-none transition-all min-h-[80px]"
+              className="w-full p-2 rounded-lg border border-slate-200 bg-white/50 focus:ring-2 focus:ring-purple-400 outline-none transition-all min-h-[60px]"
               value={data.description}
               onChange={(e) => updateNodeData(id, { description: e.target.value })}
               placeholder="マスの説明を入力"
             />
           </div>
 
+          {/* サイズ & ストップ */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">サイズ</label>
@@ -56,7 +78,6 @@ export const NodeConfigPanel = () => {
                 <option value="large">大</option>
               </select>
             </div>
-            
             <div className="flex items-center pt-6">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input 
@@ -70,13 +91,51 @@ export const NodeConfigPanel = () => {
             </div>
           </div>
 
-          {/* 後ほど12種のアクションの設定UIをここに追加する */}
-          <div className="pt-4 border-t border-slate-200/50 mt-4">
-            <h3 className="text-sm font-bold text-slate-800 mb-3">アクション設定</h3>
-            <button className="w-full py-2 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg font-medium hover:bg-purple-50 transition-colors">
-              + アクションを追加
-            </button>
+          {/* カスタムカラー */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">カスタムカラー</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={data.color || '#6366f1'}
+                onChange={(e) => updateNodeData(id, { color: e.target.value })}
+                className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer"
+              />
+              {data.color && (
+                <button
+                  onClick={() => updateNodeData(id, { color: undefined })}
+                  className="text-xs text-slate-500 hover:text-red-500"
+                >
+                  リセット
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* マス画像 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">マス画像</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="w-full text-sm text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+            />
+            {data.image && (
+              <div className="mt-2 relative">
+                <img src={data.image as string} alt="マス画像" className="w-full h-20 object-cover rounded-lg" />
+                <button
+                  onClick={() => updateNodeData(id, { image: undefined })}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* アクション設定 - 12種対応 */}
+          <ActionEditor nodeId={id} actions={data.actions || []} />
         </div>
       </GlassCard>
     </div>
