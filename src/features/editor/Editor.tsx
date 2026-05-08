@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, Check, Copy, Globe2, Loader2, Play, RotateCcw, X, Home } from 'lucide-react';
@@ -41,8 +41,19 @@ export default function Editor() {
   const [copied, setCopied] = useState(false);
   const [draftAvailable, setDraftAvailable] = useState(() => Boolean(localStorage.getItem(draftKey)));
 
+  const location = useLocation();
+
   useEffect(() => {
-    if (!routeBoardId) return;
+    if (!routeBoardId) {
+      // 新規作成の場合、テンプレートの指定があれば適用
+      const params = new URLSearchParams(location.search);
+      const template = params.get('template');
+      if (template) {
+        useEditorStore.getState().applyTemplate(template as any);
+        setBoardName('テンプレートから作成');
+      }
+      return;
+    }
     let cancelled = false;
     loadBoard(routeBoardId)
       .then((board) => {

@@ -28,7 +28,7 @@ const cardVariants: Variants = {
 export const Lobby = ({ roomId, players, playerOrder, localPlayerId, onStartGame, onUpdateName, onUpdateIcon }: LobbyProps) => {
   const [name, setName] = useState('');
   const isHost = players[localPlayerId]?.isHost;
-  const canStart = isHost || playerOrder.includes(localPlayerId);
+  const canStart = isHost;
 
   const handleNameSubmit = () => {
     if (name.trim()) onUpdateName(name.trim());

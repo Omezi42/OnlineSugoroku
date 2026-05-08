@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { ReactFlow, Background, Controls, MiniMap, useReactFlow } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, useReactFlow, MarkerType } from '@xyflow/react';
 import type { NodeTypes } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -71,8 +71,14 @@ export const Canvas = () => {
         multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
         connectionLineStyle={{ stroke: '#a855f7', strokeWidth: 3 }}
         defaultEdgeOptions={{
-          style: { stroke: '#a855f7', strokeWidth: 2 },
+          style: { stroke: '#a855f7', strokeWidth: 4, strokeLinecap: 'round' },
           animated: true,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 16,
+            height: 16,
+            color: '#a855f7',
+          },
         }}
       >
         <Background gap={gridSize} size={1} color="#e2e8f0" />

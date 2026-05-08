@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ReactFlow, ReactFlowProvider, Background } from '@xyflow/react';
+import { ReactFlow, ReactFlowProvider, Background, MarkerType } from '@xyflow/react';
 import type { Node } from '@xyflow/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BookOpen, Loader2, Settings2, LogOut, SkipForward, RotateCcw, UserMinus } from 'lucide-react';
@@ -22,6 +22,7 @@ import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { BoardRuleModal } from './components/BoardRuleModal';
 import { AudioMixer } from './components/AudioMixer';
+import { ToastNotification, type ToastData } from '../../components/ui/ToastNotification';
 import { useSoundSettings } from '../../hooks/useSoundSettings';
 import type { Player } from '../../types/game';
 import type { NodeData, MinigameAction, StealAction } from '../../types/board';
@@ -39,9 +40,15 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const [boardData, setBoardData] = useState<BoardData | null>(null);
   const [localPlayerId, setLocalPlayerId] = useState<string>('');
   const [showResult, setShowResult] = useState(false);
+  const [showResultButton, setShowResultButton] = useState(false);
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showPlayerPanel, setShowPlayerPanel] = useState(true);
+  const [showLogPanel, setShowLogPanel] = useState(true);
   const [selectedNodeData, setSelectedNodeData] = useState<NodeData | null>(null);
+  const [animatingPlayer, setAnimatingPlayer] = useState<{ id: string; position: string } | null>(null);
+  const [toasts, setToasts] = useState<ToastData[]>([]);
+  const previousLogCount = useRef<number>(0);
   const { settings: soundSettings, setSettings: setSoundSettings, playSe } = useSoundSettings();
   const navigate = useNavigate();
 
@@ -66,37 +73,82 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       const initParams: Record<string, number> = {};
       board.settings.parameters.forEach(p => { initParams[p.id] = p.initialValue; });
 
-      const newPlayer: Player = {
-        id: pId,
-        name: `プレイヤー${pId.slice(-3)}`,
-        icon: '🎲',
-        isHost: false,
-        params: initParams,
-        position: startNodeId,
-        restTurns: 0,
-        hasGoal: false,
-      };
-
       try {
-        await joinGameRoom(roomId, newPlayer);
+        // すでにルームが存在するか参加を試みる
+        // もしすでにルーム内に自分がいるなら、既存のプレイヤー情報を維持する
+        const existingPlayer = gameState?.players?.[pId];
+        
+        const playerObj: Player = {
+          id: pId,
+          name: existingPlayer?.name || `プレイヤー${pId.slice(-3)}`,
+          icon: existingPlayer?.icon || '🎲',
+          isHost: existingPlayer?.isHost || false,
+          params: existingPlayer?.params || initParams,
+          position: existingPlayer?.position || startNodeId,
+          restTurns: existingPlayer?.restTurns || 0,
+          hasGoal: existingPlayer?.hasGoal || false,
+          rank: existingPlayer?.rank,
+        };
+
+        await joinGameRoom(roomId, playerObj);
       } catch {
-        newPlayer.isHost = true;
+        const newPlayer: Player = {
+          id: pId,
+          name: `プレイヤー${pId.slice(-3)}`,
+          icon: '🎲',
+          isHost: true,
+          params: initParams,
+          position: startNodeId,
+          restTurns: 0,
+          hasGoal: false,
+        };
         await createGameRoom(roomId, boardId, newPlayer);
       }
     };
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId, roomId]);
 
-  // ゲーム終了検知
+  // ゲーム終了検知とログ監視（トースト）
   useEffect(() => {
-    if (gameState?.status === 'finished') setShowResult(true);
-  }, [gameState?.status]);
+    if (!gameState) return;
+
+    if (gameState.status === 'finished' && !showResult && !showResultButton) {
+      setShowResultButton(true);
+    }
+
+    // 新しいログがあればトースト表示
+    if (gameState.logs.length > previousLogCount.current) {
+      const newLogs = gameState.logs.slice(previousLogCount.current);
+      const actionLogs = newLogs.filter(log => log.type === 'action' || log.type === 'system');
+      
+      if (actionLogs.length > 0) {
+        setToasts(prev => [
+          ...prev,
+          ...actionLogs.map(l => ({
+            id: l.id,
+            message: l.message,
+            type: (l.message.includes('+') || l.message.includes('🎉') || l.message.includes('成功')) ? 'success' :
+                  (l.message.includes('-') || l.message.includes('😢') || l.message.includes('失敗')) ? 'danger' :
+                  l.message.includes('奪った') ? 'warning' : 'info' as ToastData['type']
+          }))
+        ]);
+      }
+      previousLogCount.current = gameState.logs.length;
+    }
+  }, [gameState, showResult, showResultButton]);
 
   // ノードにプレイヤーコマ情報を付与した動的ノード一覧
   const nodesWithPlayers: Node<NodeData>[] = useMemo(() => {
     if (!boardData || !gameState) return boardData?.nodes || [];
+    
+    // アニメーション中のプレイヤーがいれば、その位置を優先する
+    const currentPlayers = Object.values(gameState.players).map(p => 
+      animatingPlayer?.id === p.id ? { ...p, position: animatingPlayer.position } : p
+    );
+
     return boardData.nodes.map(node => {
-      const playersHere = Object.values(gameState.players)
+      const playersHere = currentPlayers
         .filter(p => p.position === node.id)
         .map(p => ({ id: p.id, name: p.name, icon: p.icon, isMe: p.id === localPlayerId }));
       return {
@@ -107,9 +159,31 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
         },
       };
     });
-  }, [boardData, gameState, localPlayerId]);
+  }, [boardData, gameState, localPlayerId, animatingPlayer]);
+
+  // エッジ（道）の見た目をすごろく風にする
+  const edgesWithStyles = useMemo(() => {
+    if (!boardData) return [];
+    return boardData.edges.map(e => ({
+      ...e,
+      style: { stroke: '#a855f7', strokeWidth: 4, strokeLinecap: 'round' as const, ...e.style },
+      animated: true,
+      markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#a855f7' }
+    }));
+  }, [boardData]);
 
   // === コールバック群 ===
+
+  // 1マスずつ進むアニメーションを実行する
+  const animateMove = async (playerId: string, path: string[]) => {
+    if (path.length === 0) return;
+    for (const stepNodeId of path) {
+      setAnimatingPlayer({ id: playerId, position: stepNodeId });
+      playSe('dice'); // 歩く音の代わりにサイコロ音などを鳴らす
+      await new Promise(r => setTimeout(r, 400));
+    }
+    setAnimatingPlayer(null);
+  };
 
   const handleStartGame = useCallback(async () => {
     if (!gameState) return;
@@ -202,6 +276,9 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     // コマ移動
     const moveResult = movePlayer(player.position, result, boardData.nodes, boardData.edges);
 
+    // アニメーション実行
+    await animateMove(currentPid, moveResult.passedNodeIds);
+
     if (moveResult.needsBranchChoice && moveResult.branchOptions) {
       // 分岐選択が必要
       await updateGameState(roomId, {
@@ -274,9 +351,20 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
         // 追加移動
         if (result.additionalMoveSteps) {
           if (result.additionalMoveDirection === 'back') {
-            updatedPlayer.position = movePlayerBack(updatedPlayer.position, result.additionalMoveSteps, boardData.nodes, boardData.edges);
+            const backPath: string[] = [];
+            let currentPosForBack = updatedPlayer.position;
+            for(let i=0; i<result.additionalMoveSteps; i++) {
+              const prev = movePlayerBack(currentPosForBack, 1, boardData.nodes, boardData.edges);
+              if (prev === currentPosForBack) break;
+              backPath.push(prev);
+              currentPosForBack = prev;
+            }
+            await animateMove(updatedPlayer.id, backPath);
+            updatedPlayer.position = currentPosForBack;
           } else {
             const additionalMove = movePlayer(updatedPlayer.position, result.additionalMoveSteps, boardData.nodes, boardData.edges);
+            await animateMove(updatedPlayer.id, additionalMove.passedNodeIds);
+
             if (additionalMove.needsBranchChoice && additionalMove.branchOptions) {
               await updateGameState(roomId, {
                 logs,
@@ -487,7 +575,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       <div className="absolute inset-0 z-0">
         <ReactFlow
           nodes={nodesWithPlayers}
-          edges={boardData.edges}
+          edges={edgesWithStyles}
           nodeTypes={nodeTypes}
           nodesDraggable={false}
           nodesConnectable={false}
@@ -512,32 +600,60 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       {/* UI オーバーレイ */}
       {gameState.status === 'playing' && (
         <div className="absolute inset-0 z-10 pointer-events-none p-2 sm:p-4 flex flex-col justify-between">
+          <ToastNotification toasts={toasts} removeToast={(id) => setToasts(ts => ts.filter(t => t.id !== id))} />
+
           {/* 上部 */}
-          <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4">
-            <div className="pointer-events-auto">
-              <PlayerStatusPanel
-                players={gameState.players}
-                playerOrder={gameState.playerOrder}
-                currentTurnIndex={gameState.currentTurnIndex}
-                localPlayerId={localPlayerId}
-                parameters={boardData.settings.parameters}
-              />
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4 relative">
+            <div className="pointer-events-auto relative">
+              <AnimatePresence>
+                {showPlayerPanel && (
+                  <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                    <PlayerStatusPanel
+                      players={gameState.players}
+                      playerOrder={gameState.playerOrder}
+                      currentTurnIndex={gameState.currentTurnIndex}
+                      localPlayerId={localPlayerId}
+                      parameters={boardData.settings.parameters}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <button
+                onClick={() => setShowPlayerPanel(!showPlayerPanel)}
+                className="absolute -bottom-8 left-2 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full shadow-md text-xs font-bold text-slate-600 border border-slate-200"
+              >
+                {showPlayerPanel ? 'プレイヤー窓を隠す' : 'プレイヤー窓を表示'}
+              </button>
             </div>
 
-            <GlassCard className="pointer-events-auto hidden sm:block p-4 w-72 max-h-64 overflow-y-auto">
-              <h3 className="font-bold text-slate-800 mb-2 text-sm">📜 ゲームログ</h3>
-              <div className="space-y-1.5 flex flex-col-reverse">
-                {gameState.logs.slice(-20).reverse().map((log) => (
-                  <div key={log.id} className={`text-xs p-1.5 rounded ${
-                    log.type === 'action' ? 'bg-purple-50 text-purple-700' :
-                    log.type === 'move' ? 'bg-blue-50 text-blue-700' :
-                    'bg-white/50 text-slate-600'
-                  }`}>
-                    {log.message}
-                  </div>
-                ))}
-              </div>
-            </GlassCard>
+            <div className="pointer-events-auto hidden sm:block relative">
+              <AnimatePresence>
+                {showLogPanel && (
+                  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                    <GlassCard className="p-4 w-72 max-h-64 overflow-y-auto">
+                      <h3 className="font-bold text-slate-800 mb-2 text-sm">📜 ゲームログ</h3>
+                      <div className="space-y-1.5 flex flex-col-reverse">
+                        {gameState.logs.slice(-20).reverse().map((log) => (
+                          <div key={log.id} className={`text-xs p-1.5 rounded ${
+                            log.type === 'action' ? 'bg-purple-50 text-purple-700' :
+                            log.type === 'move' ? 'bg-blue-50 text-blue-700' :
+                            'bg-white/50 text-slate-600'
+                          }`}>
+                            {log.message}
+                          </div>
+                        ))}
+                      </div>
+                    </GlassCard>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <button
+                onClick={() => setShowLogPanel(!showLogPanel)}
+                className="absolute -bottom-8 right-2 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full shadow-md text-xs font-bold text-slate-600 border border-slate-200"
+              >
+                {showLogPanel ? 'ログを隠す' : 'ログを表示'}
+              </button>
+            </div>
           </div>
 
           <div className="pointer-events-auto absolute right-2 top-2 sm:right-4 sm:top-4 flex flex-col gap-2 items-end">
@@ -625,20 +741,34 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
           {/* 下部：アクションエリア */}
           <div className="flex justify-center mb-3 sm:mb-6 pointer-events-auto">
-            <div className="flex flex-col items-center gap-3">
-              <div className="max-w-[92vw] bg-white/90 backdrop-blur-md px-4 sm:px-6 py-2 rounded-2xl sm:rounded-full shadow-lg font-bold text-slate-800 text-sm sm:text-base text-center">
-                {isMyTurn ? (
-                  <span className="text-purple-600">🎲 あなたのターン！サイコロを振ろう</span>
-                ) : (
-                  <span>{currentPlayer?.name} のターンを待っています...</span>
-                )}
+            {showResultButton ? (
+              <motion.button
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                onClick={() => {
+                  setShowResultButton(false);
+                  setShowResult(true);
+                }}
+                className="bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-xl px-8 py-4 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all animate-pulse"
+              >
+                🏆 ゲーム終了！結果を見る
+              </motion.button>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <div className="max-w-[92vw] bg-white/90 backdrop-blur-md px-4 sm:px-6 py-2 rounded-2xl sm:rounded-full shadow-lg font-bold text-slate-800 text-sm sm:text-base text-center">
+                  {isMyTurn ? (
+                    <span className="text-purple-600">🎲 あなたのターン！サイコロを振ろう</span>
+                  ) : (
+                    <span>{currentPlayer?.name} のターンを待っています...</span>
+                  )}
+                </div>
+                <Dice
+                  diceType={boardData.settings.diceType}
+                  onRollComplete={handleRollComplete}
+                  disabled={!isMyTurn || !!pending}
+                />
               </div>
-              <Dice
-                diceType={boardData.settings.diceType}
-                onRollComplete={handleRollComplete}
-                disabled={!isMyTurn || !!pending}
-              />
-            </div>
+            )}
           </div>
         </div>
       )}

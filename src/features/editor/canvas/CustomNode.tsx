@@ -1,6 +1,7 @@
 import { Handle, Position } from '@xyflow/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { NodeData } from '../../../types/board';
+import { PlayerIcon } from '../../../components/ui/PlayerIcon';
 import { cn } from '../../../lib/cn';
 
 const typeColors: Record<string, string> = {
@@ -117,11 +118,11 @@ export const CustomNode = ({ data, selected }: { data: NodeData, selected?: bool
                 transition={{ type: 'spring', stiffness: 500, damping: 20, delay: idx * 0.05 }}
                 className={cn(
                   'w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-lg border-2',
-                  p.isMe ? 'border-yellow-400 bg-yellow-50' : 'border-white bg-white/90'
+                  p.isMe ? 'border-yellow-400 bg-yellow-50/90' : 'border-white bg-white/90'
                 )}
                 title={p.name}
               >
-                {p.icon}
+                <PlayerIcon icon={p.icon} size="sm" />
               </motion.div>
             ))}
           </AnimatePresence>

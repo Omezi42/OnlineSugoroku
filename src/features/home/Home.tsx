@@ -142,7 +142,10 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start items-center">
               <Button size="lg" icon={<PenTool className="w-5 h-5" />} onClick={() => navigate('/editor')} className="w-full sm:w-auto">
-                盤面を作る
+                空から作る
+              </Button>
+              <Button variant="glass" size="lg" icon={<Sparkles className="w-5 h-5" />} onClick={() => navigate('/editor?template=party')} className="w-full sm:w-auto text-pink-600 border-pink-200 hover:bg-pink-50">
+                テンプレから
               </Button>
               <Button variant="glass" size="lg" icon={<Play className="w-5 h-5" />} onClick={() => setShowJoinModal(true)} className="w-full sm:w-auto">
                 ルームに参加

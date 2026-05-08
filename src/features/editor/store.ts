@@ -4,7 +4,7 @@ import type { Node, Edge, NodeChange, EdgeChange, Connection } from '@xyflow/rea
 import type { BoardSettings, NodeData, NodeType } from '../../types/board';
 
 type LayoutMode = 'line' | 'zigzag' | 'circle';
-type TemplateType = 'simple' | 'branch' | 'long';
+type TemplateType = 'simple' | 'branch' | 'long' | 'party';
 
 interface HistorySnapshot {
   nodes: Node<NodeData>[];
@@ -79,7 +79,14 @@ const createNode = (
 });
 
 const initialNodes: Node<NodeData>[] = [
-  createNode('start-node', 'スタート', 'start', 250, 250, 'ここからゲームが始まります'),
+  createNode('start-node', 'スタート', 'start', 150, 250, 'ここからゲームが始まります'),
+  createNode('node-1', 'お給料日', 'plus', 400, 250, '1000円ゲット！', [{ type: 'paramChange', paramId: 'money', amount: 1000 }]),
+  createNode('goal-node', 'ゴール', 'goal', 650, 250, '早く着いた人にはボーナス！'),
+];
+
+const initialEdges: Edge[] = [
+  { id: 'e1', source: 'start-node', target: 'node-1', animated: true },
+  { id: 'e2', source: 'node-1', target: 'goal-node', animated: true },
 ];
 
 const getSnapshot = (state: HistorySnapshot): HistorySnapshot => ({
@@ -132,6 +139,25 @@ const layoutNodes = (nodes: Node<NodeData>[], mode: LayoutMode): Node<NodeData>[
 };
 
 const createTemplate = (template: TemplateType): Pick<HistorySnapshot, 'nodes' | 'edges'> => {
+  if (template === 'party') {
+    const nodes = [
+      createNode('tpl-start', 'スタート', 'start', 100, 260),
+      createNode('tpl-1', '臨時収入', 'plus', 350, 260, 'おこづかい500円ゲット', [{ type: 'paramChange', paramId: 'money', amount: 500 }]),
+      createNode('tpl-2', 'カジノ', 'stop', 600, 260, 'ハイ＆ローで勝負！', [{ type: 'minigame', gameType: 'highlow', winActions: [{ type: 'paramChange', paramId: 'money', amount: 2000 }], loseActions: [{ type: 'paramChange', paramId: 'money', amount: -500 }] }]),
+      createNode('tpl-3', '落とし物', 'minus', 850, 260, '300円落とした...', [{ type: 'paramChange', paramId: 'money', amount: -300 }]),
+      createNode('tpl-goal', 'ゴール', 'goal', 1100, 260),
+    ];
+    return {
+      nodes,
+      edges: [
+        { id: 'tpl-e-1', source: 'tpl-start', target: 'tpl-1', animated: true },
+        { id: 'tpl-e-2', source: 'tpl-1', target: 'tpl-2', animated: true },
+        { id: 'tpl-e-3', source: 'tpl-2', target: 'tpl-3', animated: true },
+        { id: 'tpl-e-4', source: 'tpl-3', target: 'tpl-goal', animated: true },
+      ],
+    };
+  }
+
   if (template === 'branch') {
     const nodes = [
       createNode('tpl-start', 'スタート', 'start', 120, 260),
@@ -182,7 +208,7 @@ const createTemplate = (template: TemplateType): Pick<HistorySnapshot, 'nodes' |
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   nodes: initialNodes,
-  edges: [],
+  edges: initialEdges,
   boardSettings: defaultBoardSettings,
   past: [],
   future: [],
@@ -347,7 +373,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   resetStore: () => {
     set({
       nodes: initialNodes,
-      edges: [],
+      edges: initialEdges,
       boardSettings: defaultBoardSettings,
       past: [],
       future: [],

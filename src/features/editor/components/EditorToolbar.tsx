@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEditorStore } from '../store';
 import {
   Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2,
-  Copy, ClipboardPaste, Rows3, Workflow, CircleDot, PanelTopOpen, Map as MapIcon, Maximize2, Magnet,
+  Copy, ClipboardPaste, Rows3, Workflow, CircleDot, Map as MapIcon, Maximize2, Magnet,
 } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { validateBoard, type ValidationResult } from '../utils/boardValidation';
@@ -13,14 +13,13 @@ import { importBoardData } from '../utils/boardImport';
 export const EditorToolbar = () => {
   const {
     nodes, edges, past, future, clipboard, snapToGrid, gridSize,
-    undo, redo, copySelected, pasteClipboard, applyLayout, applyTemplate, addArea, setSnapToGrid, setGridSize, snapSelectedToGrid,
+    undo, redo, copySelected, pasteClipboard, applyLayout, addArea, setSnapToGrid, setGridSize, snapSelectedToGrid,
   } = useEditorStore();
   const { fitView } = useReactFlow();
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
   const [showLayouts, setShowLayouts] = useState(false);
 
   useEffect(() => {
@@ -149,10 +148,10 @@ export const EditorToolbar = () => {
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${
               snapToGrid ? 'bg-emerald-100 text-emerald-700' : 'bg-white/70 hover:bg-white text-slate-700'
             }`}
-            title="マスをグリッドに吸着して、ピッタリ配置します"
+            title="マスをグリッド（方眼）に自動で合わせます"
           >
             <Magnet className="w-3.5 h-3.5" />
-            吸着
+            グリッドに沿う
           </button>
           <select
             value={gridSize}
@@ -165,9 +164,9 @@ export const EditorToolbar = () => {
           <button
             onClick={snapSelectedToGrid}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-            title="選択中のマスを一番近いグリッドへそろえます"
+            title="選択中のマスを一番近いグリッドへ揃えます"
           >
-            ピッタリ
+            近くの線に揃える
           </button>
           <div className="w-px h-6 bg-slate-300" />
           <button
@@ -188,16 +187,6 @@ export const EditorToolbar = () => {
             貼付
           </button>
           <div className="w-px h-6 bg-slate-300" />
-          <button
-            onClick={() => setShowTemplates(!showTemplates)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${
-              showTemplates ? 'bg-pink-100 text-pink-700' : 'bg-white/70 hover:bg-white text-slate-700'
-            }`}
-            title="テンプレートを展開"
-          >
-            <PanelTopOpen className="w-3.5 h-3.5" />
-            テンプレ
-          </button>
           <button
             onClick={() => setShowLayouts(!showLayouts)}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${
@@ -264,42 +253,6 @@ export const EditorToolbar = () => {
         </div>
       </div>
 
-      {/* テンプレート展開 */}
-      <AnimatePresence>
-        {showTemplates && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto"
-          >
-            <GlassCard className="w-[420px] p-4 shadow-xl">
-              <h3 className="text-sm font-bold text-slate-800 mb-3">テンプレートを展開</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { key: 'simple', label: 'シンプル', icon: Rows3 },
-                  { key: 'branch', label: '分岐ルート', icon: Workflow },
-                  { key: 'long', label: 'ロング', icon: CircleDot },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => {
-                      applyTemplate(item.key as 'simple' | 'branch' | 'long');
-                      setShowTemplates(false);
-                      setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 50);
-                    }}
-                    className="flex flex-col items-center gap-2 rounded-xl bg-white/70 p-3 text-xs font-bold text-slate-700 hover:bg-pink-50 hover:text-pink-700 transition-colors"
-                  >
-                    <item.icon className="w-5 h-5" />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-slate-500">現在の盤面を置き換えます。戻すボタンで直前の状態へ戻せます。</p>
-            </GlassCard>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* 自動整列 */}
       <AnimatePresence>
