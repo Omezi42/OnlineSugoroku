@@ -152,4 +152,6 @@ export interface NodeData extends Record<string, unknown> {
   size: NodeSize;
   isStop: boolean; // 必ず止まるマスかどうか
   actions: Action[];
+  // --- 動的データ (プレイ時のみ) ---
+  playersOnNode?: { id: string; name: string; icon: string; isMe?: boolean }[];
 }

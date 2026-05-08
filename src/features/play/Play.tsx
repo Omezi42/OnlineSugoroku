@@ -1,6 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReactFlow, ReactFlowProvider, Background } from '@xyflow/react';
+import type { Node } from '@xyflow/react';
+import { AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 
@@ -15,15 +17,17 @@ import { BranchChoice } from './components/BranchChoice';
 import { MinigameDialog } from './components/MinigameDialog';
 import { ResultScreen } from './components/ResultScreen';
 import { PlayerStatusPanel } from './components/PlayerStatusPanel';
+import { StealDialog } from './components/StealDialog';
+import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { GlassCard } from '../../components/ui/GlassCard';
 import type { Player } from '../../types/game';
-import type { MinigameAction } from '../../types/board';
+import type { NodeData, MinigameAction, StealAction } from '../../types/board';
 import {
   movePlayer, movePlayerBack, processAction, checkGoal, checkGameEnd,
   calculateRanking, createLog, getNodeById,
 } from '../../services/gameEngine';
 
-const nodeTypes: any = {
+const nodeTypes: Record<string, any> = {
   custom: CustomNode,
 };
 
@@ -32,6 +36,7 @@ function PlayInner({ roomId }: { roomId: string }) {
   const [boardData, setBoardData] = useState<BoardData | null>(null);
   const [localPlayerId, setLocalPlayerId] = useState<string>('');
   const [showResult, setShowResult] = useState(false);
+  const [selectedNodeData, setSelectedNodeData] = useState<NodeData | null>(null);
   const navigate = useNavigate();
 
   // 初回参加処理
@@ -80,6 +85,23 @@ function PlayInner({ roomId }: { roomId: string }) {
     if (gameState?.status === 'finished') setShowResult(true);
   }, [gameState?.status]);
 
+  // ノードにプレイヤーコマ情報を付与した動的ノード一覧
+  const nodesWithPlayers: Node<NodeData>[] = useMemo(() => {
+    if (!boardData || !gameState) return boardData?.nodes || [];
+    return boardData.nodes.map(node => {
+      const playersHere = Object.values(gameState.players)
+        .filter(p => p.position === node.id)
+        .map(p => ({ id: p.id, name: p.name, icon: p.icon, isMe: p.id === localPlayerId }));
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          playersOnNode: playersHere.length > 0 ? playersHere : undefined,
+        },
+      };
+    });
+  }, [boardData, gameState, localPlayerId]);
+
   // === コールバック群 ===
 
   const handleStartGame = useCallback(async () => {
@@ -103,6 +125,11 @@ function PlayInner({ roomId }: { roomId: string }) {
       [`players.${localPlayerId}.icon`]: icon,
     } as any);
   }, [gameState, roomId, localPlayerId]);
+
+  // マスクリック → 詳細パネル
+  const handleNodeClick = useCallback((_: any, node: Node<NodeData>) => {
+    setSelectedNodeData(node.data);
+  }, []);
 
   // サイコロを振った後の処理
   const handleRollComplete = useCallback(async (result: number) => {
@@ -228,7 +255,6 @@ function PlayInner({ roomId }: { roomId: string }) {
 
       if (nextP && nextP.restTurns > 0) {
         logs.push(createLog(`😴 ${nextP.name} は休みのためスキップ`, 'system'));
-        // 休みターンを消費
         await updateGameState(roomId, {
           [`players.${nextPid}.restTurns`]: nextP.restTurns - 1,
         } as any);
@@ -268,6 +294,31 @@ function PlayInner({ roomId }: { roomId: string }) {
         logs.push(...result.logs);
       }
     }
+
+    await advanceTurn(updatedPlayer, logs);
+  }, [gameState, boardData, roomId]);
+
+  // スティールターゲット選択処理
+  const handleStealSelect = useCallback(async (targetPlayerId: string) => {
+    if (!gameState || !boardData) return;
+    const interaction = gameState.pendingInteraction;
+    if (!interaction || !interaction.action) return;
+    const action = interaction.action as StealAction;
+    const player = gameState.players[interaction.playerId];
+    const targetPlayer = gameState.players[targetPlayerId];
+    let updatedPlayer = { ...player, params: { ...player.params } };
+    const logs = [...gameState.logs];
+
+    const stolen = Math.min(action.amount, targetPlayer.params[action.paramId] || 0);
+    updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + stolen;
+
+    const paramName = boardData.settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
+    logs.push(createLog(`💰 ${player.name} が ${targetPlayer.name} から ${paramName} を ${stolen} 奪った！`, 'action'));
+
+    // ターゲットのパラメータを減らす
+    await updateGameState(roomId, {
+      [`players.${targetPlayerId}.params.${action.paramId}`]: (targetPlayer.params[action.paramId] || 0) - stolen,
+    } as any);
 
     await advanceTurn(updatedPlayer, logs);
   }, [gameState, boardData, roomId]);
@@ -330,20 +381,41 @@ function PlayInner({ roomId }: { roomId: string }) {
         />
       )}
 
-      {/* 背景のボード (Read Only) */}
+      {/* スティール（奪う）ダイアログ */}
+      {pending?.type === 'steal' && isPendingMine && pending.stealTargets && pending.action && (
+        <StealDialog
+          targets={pending.stealTargets}
+          players={gameState.players}
+          action={pending.action as StealAction}
+          onSelect={handleStealSelect}
+        />
+      )}
+
+      {/* 背景のボード (Read Only) - プレイヤーコマ付き */}
       <div className="absolute inset-0 z-0">
         <ReactFlow
-          nodes={boardData.nodes}
+          nodes={nodesWithPlayers}
           edges={boardData.edges}
           nodeTypes={nodeTypes}
           nodesDraggable={false}
           nodesConnectable={false}
-          elementsSelectable={false}
+          elementsSelectable={true}
+          onNodeClick={handleNodeClick}
           fitView
         >
           <Background gap={16} size={1} color="#e2e8f0" />
         </ReactFlow>
       </div>
+
+      {/* マスの詳細パネル */}
+      <AnimatePresence>
+        {selectedNodeData && (
+          <NodeDetailPanel
+            nodeData={selectedNodeData}
+            onClose={() => setSelectedNodeData(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* UI オーバーレイ */}
       {gameState.status === 'playing' && (

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Canvas } from './canvas/Canvas';
 import { Sidebar } from './panels/Sidebar';
 import { NodeConfigPanel } from './panels/NodeConfigPanel';
+import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
 import { saveBoard } from '../../services/boardService';
 import { Loader2 } from 'lucide-react';
@@ -36,6 +37,7 @@ export default function Editor() {
       <Sidebar />
       <Canvas />
       <NodeConfigPanel />
+      <EditorToolbar />
       
       {/* ヘッダー的なオーバーレイ（保存ボタンなど） */}
       <div className="absolute top-4 left-72 right-4 flex justify-between items-center pointer-events-none">
