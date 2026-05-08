@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Play, PenTool, Sparkles, Users, X, ArrowRight, GalleryHorizontalEnd, Loader2, Pencil } from 'lucide-react';
+import { Play, PenTool, Sparkles, Users, X, ArrowRight, GalleryHorizontalEnd, Loader2, Pencil, BookOpen, Info } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { listBoards } from '../../services/boardService';
 import type { BoardData } from '../../services/boardService';
+import { RulebookModal } from '../../components/RulebookModal';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -14,6 +15,8 @@ export default function Home() {
   const [roomIdInput, setRoomIdInput] = useState('');
   const [boards, setBoards] = useState<BoardData[]>([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(true);
+  const [selectedBoard, setSelectedBoard] = useState<BoardData | null>(null);
+  const [showRulebook, setShowRulebook] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -114,6 +117,15 @@ export default function Home() {
           >
             ルームに参加する
           </Button>
+          <Button
+            variant="glass"
+            size="lg"
+            icon={<BookOpen className="w-5 h-5" />}
+            onClick={() => setShowRulebook(true)}
+            className="w-full sm:w-auto"
+          >
+            ルールを見る
+          </Button>
         </motion.div>
 
         <motion.div variants={itemVariants} className="mb-16 text-left">
@@ -146,12 +158,22 @@ export default function Home() {
                     <p className="text-xs text-slate-500 mt-1">
                       {board.nodes.filter((node) => node.data.nodeType !== 'area').length}マス / {board.edges.length}ルート
                     </p>
+                    <p className="text-xs text-slate-500 mt-1 truncate">
+                      {board.description || '説明はまだありません'}
+                    </p>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white flex items-center justify-center shadow-md">
                     <Play className="w-5 h-5" />
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setSelectedBoard(board)}
+                    className="py-2 rounded-xl bg-white/70 text-sm font-bold text-blue-700 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Info className="w-4 h-4" />
+                    詳細
+                  </button>
                   <button
                     onClick={() => board.id && navigate(`/editor/${board.id}`)}
                     className="py-2 rounded-xl bg-white/70 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5"
@@ -208,6 +230,65 @@ export default function Home() {
 
       {/* ルーム参加モーダル */}
       <AnimatePresence>
+        {showRulebook && <RulebookModal onClose={() => setShowRulebook(false)} />}
+
+        {selectedBoard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="w-full max-w-lg"
+            >
+              <GlassCard className="p-6 relative shadow-2xl">
+                <button
+                  onClick={() => setSelectedBoard(null)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <h2 className="text-2xl font-bold text-slate-800 pr-8">{selectedBoard.name || '名称未設定のすごろく'}</h2>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  {selectedBoard.description || 'この盤面にはまだ説明がありません。'}
+                </p>
+                <div className="mt-5 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl bg-white/60 p-3">
+                    <p className="text-xs text-slate-500">マス</p>
+                    <p className="font-black text-slate-800">{selectedBoard.nodes.filter((node) => node.data.nodeType !== 'area').length}</p>
+                  </div>
+                  <div className="rounded-xl bg-white/60 p-3">
+                    <p className="text-xs text-slate-500">ルート</p>
+                    <p className="font-black text-slate-800">{selectedBoard.edges.length}</p>
+                  </div>
+                  <div className="rounded-xl bg-white/60 p-3">
+                    <p className="text-xs text-slate-500">作者</p>
+                    <p className="font-black text-slate-800 truncate">{selectedBoard.authorName || '未設定'}</p>
+                  </div>
+                </div>
+                <div className="mt-5 flex gap-2">
+                  <button
+                    onClick={() => selectedBoard.id && navigate(`/editor/${selectedBoard.id}`)}
+                    className="flex-1 py-3 rounded-xl bg-white/70 text-sm font-bold text-slate-700 hover:bg-white transition-colors"
+                  >
+                    編集する
+                  </button>
+                  <button
+                    onClick={() => selectedBoard.id && navigate(`/play/${selectedBoard.id}/room-${Date.now().toString(36)}`)}
+                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-sm font-bold shadow-md"
+                  >
+                    この盤面で遊ぶ
+                  </button>
+                </div>
+              </GlassCard>
+            </motion.div>
+          </motion.div>
+        )}
+
         {showJoinModal && (
           <motion.div
             initial={{ opacity: 0 }}

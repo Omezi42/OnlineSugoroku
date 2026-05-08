@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ReactFlow, ReactFlowProvider, Background } from '@xyflow/react';
 import type { Node } from '@xyflow/react';
 import { AnimatePresence } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { BookOpen, Loader2 } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 
 import { useGameSync } from '../../hooks/useGameSync';
@@ -19,7 +19,9 @@ import { ResultScreen } from './components/ResultScreen';
 import { PlayerStatusPanel } from './components/PlayerStatusPanel';
 import { StealDialog } from './components/StealDialog';
 import { NodeDetailPanel } from './components/NodeDetailPanel';
+import { HostControls } from './components/HostControls';
 import { GlassCard } from '../../components/ui/GlassCard';
+import { RulebookModal } from '../../components/RulebookModal';
 import type { Player } from '../../types/game';
 import type { NodeData, MinigameAction, StealAction } from '../../types/board';
 import {
@@ -36,6 +38,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const [boardData, setBoardData] = useState<BoardData | null>(null);
   const [localPlayerId, setLocalPlayerId] = useState<string>('');
   const [showResult, setShowResult] = useState(false);
+  const [showRulebook, setShowRulebook] = useState(false);
   const [selectedNodeData, setSelectedNodeData] = useState<NodeData | null>(null);
   const navigate = useNavigate();
 
@@ -125,6 +128,57 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       [`players.${localPlayerId}.icon`]: icon,
     } as any);
   }, [gameState, roomId, localPlayerId]);
+
+  const handleResetGame = useCallback(async () => {
+    if (!gameState || !boardData) return;
+    const startNodeId = boardData.nodes.find(n => n.data.nodeType === 'start')?.id || '';
+    const resetPlayers = Object.fromEntries(Object.entries(gameState.players).map(([pid, player]) => {
+      const params: Record<string, number> = {};
+      boardData.settings.parameters.forEach((param) => { params[param.id] = param.initialValue; });
+      return [pid, {
+        ...player,
+        params,
+        position: startNodeId,
+        restTurns: 0,
+        hasGoal: false,
+        rank: undefined,
+      }];
+    }));
+    await updateGameState(roomId, {
+      status: 'waiting',
+      players: resetPlayers,
+      currentTurnIndex: 0,
+      pendingInteraction: null,
+      logs: [...gameState.logs, createLog('🔄 ホストがゲームをリセットしました', 'system')],
+    } as any);
+  }, [boardData, gameState, roomId]);
+
+  const handleSkipTurn = useCallback(async () => {
+    if (!gameState) return;
+    const nextIndex = (gameState.currentTurnIndex + 1) % Math.max(gameState.playerOrder.length, 1);
+    await updateGameState(roomId, {
+      currentTurnIndex: nextIndex,
+      pendingInteraction: null,
+      logs: [...gameState.logs, createLog('⏭️ ホストがターンを送りました', 'system')],
+    });
+  }, [gameState, roomId]);
+
+  const handleRemovePlayer = useCallback(async (playerId: string) => {
+    if (!gameState) return;
+    const player = gameState.players[playerId];
+    if (!player) return;
+    const players = { ...gameState.players };
+    delete players[playerId];
+    const playerOrder = gameState.playerOrder.filter((pid) => pid !== playerId);
+    const currentTurnIndex = Math.min(gameState.currentTurnIndex, Math.max(playerOrder.length - 1, 0));
+    await updateGameState(roomId, {
+      players,
+      playerOrder,
+      currentTurnIndex,
+      pendingInteraction: gameState.pendingInteraction?.playerId === playerId ? null : gameState.pendingInteraction,
+      logs: [...gameState.logs, createLog(`👋 ホストが ${player.name} を退出させました`, 'system')],
+    } as any);
+  }, [gameState, roomId]);
 
   // マスクリック → 詳細パネル
   const handleNodeClick = useCallback((_: any, node: Node<NodeData>) => {
@@ -382,6 +436,10 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
         />
       )}
 
+      <AnimatePresence>
+        {showRulebook && <RulebookModal onClose={() => setShowRulebook(false)} />}
+      </AnimatePresence>
+
       {/* リザルト画面 */}
       {showResult && (
         <ResultScreen
@@ -473,6 +531,25 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
                 ))}
               </div>
             </GlassCard>
+          </div>
+
+          <div className="pointer-events-auto absolute right-4 top-72 flex flex-col gap-3">
+            <button
+              onClick={() => setShowRulebook(true)}
+              className="rounded-2xl bg-white/90 px-4 py-2 text-sm font-bold text-slate-700 shadow-lg backdrop-blur-md hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              ルール
+            </button>
+            <HostControls
+              players={gameState.players}
+              playerOrder={gameState.playerOrder}
+              currentTurnIndex={gameState.currentTurnIndex}
+              localPlayerId={localPlayerId}
+              onResetGame={handleResetGame}
+              onSkipTurn={handleSkipTurn}
+              onRemovePlayer={handleRemovePlayer}
+            />
           </div>
 
           {/* 下部：アクションエリア */}

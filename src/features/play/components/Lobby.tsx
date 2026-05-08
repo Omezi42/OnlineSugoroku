@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import type { Player } from '../../../types/game';
+import { ShareRoomPanel } from './ShareRoomPanel';
 
 interface LobbyProps {
   roomId: string;
@@ -34,13 +35,17 @@ export const Lobby = ({ roomId, players, playerOrder, localPlayerId, onStartGame
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-purple-900/80 via-pink-900/60 to-blue-900/80 backdrop-blur-sm">
       <motion.div variants={cardVariants} initial="hidden" animate="visible" exit="exit">
-        <GlassCard className="w-[480px] max-w-[95vw] p-8">
+        <GlassCard className="w-[520px] max-w-[95vw] p-8 max-h-[92vh] overflow-y-auto">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-extrabold text-slate-800 mb-2">🎲 すごろくロビー</h1>
             <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
               <span>Room:</span>
               <code className="bg-slate-100 px-2 py-0.5 rounded text-xs font-mono">{roomId}</code>
             </div>
+          </div>
+
+          <div className="mb-6">
+            <ShareRoomPanel roomId={roomId} />
           </div>
 
           {/* 自分の名前設定 */}

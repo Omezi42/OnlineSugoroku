@@ -6,6 +6,8 @@ import type { BoardSettings, NodeData } from '../types/board';
 export interface BoardData {
   id?: string; // 保存時に生成
   name: string;
+  description?: string;
+  authorName?: string;
   nodes: Node<NodeData>[];
   edges: Edge[];
   settings: BoardSettings;

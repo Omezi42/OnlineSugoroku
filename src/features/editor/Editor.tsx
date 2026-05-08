@@ -10,6 +10,7 @@ import { loadBoard, saveBoard } from '../../services/boardService';
 import { Loader2, Play, Copy, Check, X, Globe2, RotateCcw, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from '../../components/ui/GlassCard';
+import { validateBoard } from './utils/boardValidation';
 
 export default function Editor() {
   const navigate = useNavigate();
@@ -20,6 +21,8 @@ export default function Editor() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingBoard, setIsLoadingBoard] = useState(false);
   const [boardName, setBoardName] = useState('名称未設定のすごろく');
+  const [boardDescription, setBoardDescription] = useState('');
+  const [authorName, setAuthorName] = useState('');
   const [isPublic, setIsPublic] = useState(false);
   const [savedBoardId, setSavedBoardId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -50,6 +53,8 @@ export default function Editor() {
         });
         setCurrentBoardId(board.id || routeBoardId);
         setBoardName(board.name || '名称未設定のすごろく');
+        setBoardDescription(board.description || '');
+        setAuthorName(board.authorName || '');
         setIsPublic(Boolean(board.isPublic));
         setDraftAvailable(Boolean(localStorage.getItem(draftKey)));
       })
@@ -69,13 +74,15 @@ export default function Editor() {
       savedAt: new Date().toISOString(),
       boardId: currentBoardId,
       name: boardName,
+      description: boardDescription,
+      authorName,
       isPublic,
       nodes,
       edges,
       settings: boardSettings,
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
-  }, [boardName, boardSettings, currentBoardId, draftAvailable, draftKey, edges, isLoadingBoard, isPublic, nodes]);
+  }, [authorName, boardDescription, boardName, boardSettings, currentBoardId, draftAvailable, draftKey, edges, isLoadingBoard, isPublic, nodes]);
 
   const handleRestoreDraft = () => {
     const raw = localStorage.getItem(draftKey);
@@ -92,6 +99,8 @@ export default function Editor() {
       });
       setCurrentBoardId(draft.boardId || routeBoardId || null);
       setBoardName(draft.name || '名称未設定のすごろく');
+      setBoardDescription(draft.description || '');
+      setAuthorName(draft.authorName || '');
       setIsPublic(Boolean(draft.isPublic));
       setDraftAvailable(false);
     } catch {
@@ -105,11 +114,23 @@ export default function Editor() {
   };
 
   const handleSave = async () => {
+    const validation = validateBoard(nodes, edges);
+    if (!validation.ok) {
+      alert(`保存前チェックでエラーが見つかりました。\n\n${validation.errors.join('\n')}`);
+      return;
+    }
+    if (validation.warnings.length > 0) {
+      const shouldContinue = window.confirm(`警告がありますが保存しますか？\n\n${validation.warnings.slice(0, 6).join('\n')}`);
+      if (!shouldContinue) return;
+    }
+
     try {
       setIsSaving(true);
       const boardId = await saveBoard({
         id: currentBoardId || undefined,
         name: boardName,
+        description: boardDescription,
+        authorName,
         nodes,
         edges,
         settings: boardSettings,
@@ -184,13 +205,33 @@ export default function Editor() {
       {/* ヘッダー的なオーバーレイ（保存ボタンなど） */}
       <div className="absolute top-4 left-72 right-4 flex justify-between items-center pointer-events-none">
         <div className="glass-panel px-4 py-2 rounded-xl pointer-events-auto shadow-sm flex items-center">
-          <input
-            type="text"
-            value={boardName}
-            onChange={(e) => setBoardName(e.target.value)}
-            className="font-bold text-slate-800 bg-transparent outline-none w-64"
-            placeholder="盤面の名前"
-          />
+          <div className="flex flex-col gap-1">
+            <input
+              type="text"
+              value={boardName}
+              onChange={(e) => setBoardName(e.target.value)}
+              className="font-bold text-slate-800 bg-transparent outline-none w-72"
+              placeholder="盤面の名前"
+            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={boardDescription}
+                onChange={(e) => setBoardDescription(e.target.value)}
+                className="text-xs text-slate-500 bg-transparent outline-none w-52"
+                placeholder="説明を追加"
+                maxLength={80}
+              />
+              <input
+                type="text"
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                className="text-xs text-slate-500 bg-transparent outline-none w-32"
+                placeholder="作者名"
+                maxLength={24}
+              />
+            </div>
+          </div>
         </div>
         <div className="pointer-events-auto flex items-center gap-3">
           <label className="glass-panel px-3 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
