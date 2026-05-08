@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { GlassCard } from '../../../components/ui/GlassCard';
+import { PlayerIcon } from '../../../components/ui/PlayerIcon';
 import type { Player } from '../../../types/game';
 
 interface ResultScreenProps {
@@ -109,9 +110,9 @@ export const ResultScreen = ({ rankings, players, winConditionLabel, onClose }: 
                   <span className="text-3xl w-10 text-center">
                     {isTop3 ? medals[r.rank - 1] : `${r.rank}`}
                   </span>
-                  <span className="text-2xl">{player.icon}</span>
-                  <div className="flex-1">
-                    <p className="font-bold text-slate-800">{player.name}</p>
+                  <div className="flex items-center gap-3 w-48 truncate">
+                  <PlayerIcon icon={player.icon} size="md" />
+                  <span className="font-bold text-slate-700 truncate">{player.name}</span>
                     <p className="text-xs text-slate-500">スコア: {r.value}</p>
                   </div>
                   {r.rank === 1 && (

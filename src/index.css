@@ -15,7 +15,7 @@
   :root {
     --background: #f8fafc;
     --foreground: #0f172a;
-    --glass-bg: rgba(255, 255, 255, 0.6);
+    --glass-bg: rgba(255, 255, 255, 0.85);
     --glass-border: rgba(255, 255, 255, 0.3);
   }
 
@@ -23,7 +23,7 @@
     :root {
       --background: #0f172a;
       --foreground: #f8fafc;
-      --glass-bg: rgba(15, 23, 42, 0.6);
+      --glass-bg: rgba(15, 23, 42, 0.85);
       --glass-border: rgba(255, 255, 255, 0.1);
     }
   }

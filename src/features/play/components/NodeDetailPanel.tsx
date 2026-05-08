@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { GlassCard } from '../../../components/ui/GlassCard';
+import { PlayerIcon } from '../../../components/ui/PlayerIcon';
 import type { NodeData, Action } from '../../../types/board';
 import { X } from 'lucide-react';
 
@@ -95,9 +96,10 @@ export const NodeDetailPanel = ({ nodeData, onClose }: NodeDetailPanelProps) => 
             <h4 className="text-xs font-bold text-slate-500 mb-2">👥 このマスにいるプレイヤー</h4>
             <div className="flex gap-2 flex-wrap">
               {nodeData.playersOnNode.map(p => (
-                <span key={p.id} className="text-sm bg-white/70 px-2 py-1 rounded-lg">
-                  {p.icon} {p.name}
-                </span>
+                <div key={p.id} className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-full text-sm font-bold text-purple-700">
+                  <PlayerIcon icon={p.icon} size="sm" />
+                  <span>{p.name}</span>
+                </div>
               ))}
             </div>
           </div>

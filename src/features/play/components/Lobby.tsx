@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { GlassCard } from '../../../components/ui/GlassCard';
+import { PlayerIcon } from '../../../components/ui/PlayerIcon';
 import type { Player } from '../../../types/game';
 import { ShareRoomPanel } from './ShareRoomPanel';
+import { ImagePlus } from 'lucide-react';
 
 interface LobbyProps {
   roomId: string;
@@ -30,6 +32,47 @@ export const Lobby = ({ roomId, players, playerOrder, localPlayerId, onStartGame
 
   const handleNameSubmit = () => {
     if (name.trim()) onUpdateName(name.trim());
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxSize = 128;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxSize) {
+            height *= maxSize / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width *= maxSize / height;
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const base64 = canvas.toDataURL('image/webp', 0.8);
+          onUpdateIcon(base64);
+        }
+      };
+      if (typeof event.target?.result === 'string') {
+        img.src = event.target.result;
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -73,20 +116,29 @@ export const Lobby = ({ roomId, players, playerOrder, localPlayerId, onStartGame
           {/* アイコン選択 */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-700 mb-2">アイコン</label>
-            <div className="grid grid-cols-6 gap-2">
+            <div className="flex flex-wrap gap-2">
+              <label className="flex items-center justify-center w-10 h-10 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors cursor-pointer shadow-sm border border-purple-200" title="画像をアップロード">
+                <ImagePlus className="w-5 h-5" />
+                <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+              </label>
               {iconOptions.map((icon) => (
                 <button
                   key={icon}
                   onClick={() => onUpdateIcon(icon)}
-                  className={`text-2xl p-2 rounded-xl transition-all ${
+                  className={`text-2xl w-10 h-10 rounded-xl transition-all flex items-center justify-center ${
                     players[localPlayerId]?.icon === icon
-                      ? 'bg-purple-100 ring-2 ring-purple-400 scale-110'
-                      : 'bg-white/50 hover:bg-white/80'
+                      ? 'bg-purple-100 ring-2 ring-purple-400 scale-110 shadow-md'
+                      : 'bg-white/50 hover:bg-white/80 shadow-sm border border-slate-200'
                   }`}
                 >
                   {icon}
                 </button>
               ))}
+              {players[localPlayerId]?.icon.startsWith('data:image') && (
+                <div className="ml-2 w-10 h-10 rounded-xl bg-purple-100 ring-2 ring-purple-400 scale-110 shadow-md overflow-hidden flex items-center justify-center">
+                  <PlayerIcon icon={players[localPlayerId].icon} size="md" />
+                </div>
+              )}
             </div>
           </div>
 
@@ -107,7 +159,7 @@ export const Lobby = ({ roomId, players, playerOrder, localPlayerId, onStartGame
                         pid === localPlayerId ? 'bg-purple-50 ring-1 ring-purple-200' : 'bg-white/50'
                       }`}
                     >
-                      <span className="text-2xl">{p.icon}</span>
+                      <PlayerIcon icon={p.icon} size="sm" />
                       <span className="font-medium text-sm flex-1">{p.name}</span>
                       {p.isHost && (
                         <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold">HOST</span>

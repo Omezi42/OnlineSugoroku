@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { GlassCard } from '../../../components/ui/GlassCard';
+import { PlayerIcon } from '../../../components/ui/PlayerIcon';
 import type { Player } from '../../../types/game';
 import type { StealAction } from '../../../types/board';
 
@@ -37,7 +38,7 @@ export const StealDialog = ({ targets, players, action, onSelect }: StealDialogP
                   onClick={() => onSelect(pid)}
                   className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/70 hover:bg-white transition-colors shadow-sm hover:shadow-md"
                 >
-                  <span className="text-3xl">{p.icon}</span>
+                  <PlayerIcon icon={p.icon} size="xl" />
                   <div className="flex-1 text-left">
                     <p className="font-bold text-slate-800">{p.name}</p>
                     <p className="text-xs text-slate-500">

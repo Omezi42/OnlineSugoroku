@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReactFlow, ReactFlowProvider, Background } from '@xyflow/react';
 import type { Node } from '@xyflow/react';
-import { AnimatePresence } from 'framer-motion';
-import { BookOpen, Loader2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { BookOpen, Loader2, Settings2, LogOut, SkipForward, RotateCcw, UserMinus } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 
 import { useGameSync } from '../../hooks/useGameSync';
@@ -19,9 +19,8 @@ import { ResultScreen } from './components/ResultScreen';
 import { PlayerStatusPanel } from './components/PlayerStatusPanel';
 import { StealDialog } from './components/StealDialog';
 import { NodeDetailPanel } from './components/NodeDetailPanel';
-import { HostControls } from './components/HostControls';
 import { GlassCard } from '../../components/ui/GlassCard';
-import { RulebookModal } from '../../components/RulebookModal';
+import { BoardRuleModal } from './components/BoardRuleModal';
 import { AudioMixer } from './components/AudioMixer';
 import { useSoundSettings } from '../../hooks/useSoundSettings';
 import type { Player } from '../../types/game';
@@ -40,7 +39,8 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const [boardData, setBoardData] = useState<BoardData | null>(null);
   const [localPlayerId, setLocalPlayerId] = useState<string>('');
   const [showResult, setShowResult] = useState(false);
-  const [showRulebook, setShowRulebook] = useState(false);
+  const [showRuleModal, setShowRuleModal] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [selectedNodeData, setSelectedNodeData] = useState<NodeData | null>(null);
   const { settings: soundSettings, setSettings: setSoundSettings, playSe } = useSoundSettings();
   const navigate = useNavigate();
@@ -442,7 +442,9 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       )}
 
       <AnimatePresence>
-        {showRulebook && <RulebookModal onClose={() => setShowRulebook(false)} />}
+        {showRuleModal && boardData && (
+          <BoardRuleModal settings={boardData.settings} onClose={() => setShowRuleModal(false)} />
+        )}
       </AnimatePresence>
 
       {/* リザルト画面 */}
@@ -538,24 +540,87 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
             </GlassCard>
           </div>
 
-          <div className="pointer-events-auto absolute right-2 top-2 sm:right-4 sm:top-72 flex max-w-[46vw] sm:max-w-none flex-col gap-2 sm:gap-3">
-            <button
-              onClick={() => setShowRulebook(true)}
-              className="rounded-2xl bg-white/90 px-4 py-2 text-sm font-bold text-slate-700 shadow-lg backdrop-blur-md hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2"
-            >
-              <BookOpen className="w-4 h-4" />
-              ルール
-            </button>
-            <HostControls
-              players={gameState.players}
-              playerOrder={gameState.playerOrder}
-              currentTurnIndex={gameState.currentTurnIndex}
-              localPlayerId={localPlayerId}
-              onResetGame={handleResetGame}
-              onSkipTurn={handleSkipTurn}
-              onRemovePlayer={handleRemovePlayer}
-            />
-            <AudioMixer settings={soundSettings} onChange={setSoundSettings} />
+          <div className="pointer-events-auto absolute right-2 top-2 sm:right-4 sm:top-4 flex flex-col gap-2 items-end">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowRuleModal(true)}
+                className="w-10 h-10 rounded-xl bg-white/90 shadow-lg backdrop-blur-md hover:bg-purple-50 text-slate-700 hover:text-purple-700 transition-colors flex items-center justify-center"
+                title="ルールを確認"
+              >
+                <BookOpen className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                className={`w-10 h-10 rounded-xl shadow-lg backdrop-blur-md transition-colors flex items-center justify-center ${
+                  showSettingsMenu ? 'bg-purple-100 text-purple-700' : 'bg-white/90 text-slate-700 hover:bg-slate-50'
+                }`}
+                title="設定メニュー"
+              >
+                <Settings2 className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 設定ドロップダウンメニュー */}
+            <AnimatePresence>
+              {showSettingsMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  className="bg-white/90 backdrop-blur-md shadow-xl rounded-2xl p-4 flex flex-col gap-4 w-64 border border-slate-100"
+                >
+                  <h3 className="text-sm font-bold text-slate-700 pb-2 border-b border-slate-100">⚙️ ゲーム設定</h3>
+                  <AudioMixer settings={soundSettings} onChange={setSoundSettings} />
+                  
+                  {gameState.players[localPlayerId]?.isHost && (
+                    <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                      <h3 className="text-xs font-bold text-purple-600 mb-1">ホストメニュー</h3>
+                      <button
+                        onClick={handleSkipTurn}
+                        className="flex items-center gap-2 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg transition-colors"
+                      >
+                        <SkipForward className="w-3.5 h-3.5" /> ターンを強制スキップ
+                      </button>
+                      <button
+                        onClick={handleResetGame}
+                        className="flex items-center gap-2 text-xs font-medium bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg transition-colors"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" /> ゲームをリセット
+                      </button>
+                      
+                      {gameState.playerOrder.length > 1 && (
+                        <div className="mt-2 space-y-1 border-t border-slate-100 pt-2">
+                          <span className="text-[10px] text-slate-400 font-bold block mb-1">プレイヤーを退出させる</span>
+                          {gameState.playerOrder.filter(id => id !== localPlayerId).map(pid => (
+                            <button
+                              key={pid}
+                              onClick={() => {
+                                if (window.confirm(`${gameState.players[pid]?.name} を退出させますか？`)) {
+                                  handleRemovePlayer(pid);
+                                }
+                              }}
+                              className="flex w-full items-center justify-between gap-2 text-xs font-medium bg-white hover:bg-red-50 text-slate-600 hover:text-red-600 px-2 py-1.5 rounded border border-slate-200 transition-colors"
+                            >
+                              <span className="truncate">{gameState.players[pid]?.name}</span>
+                              <UserMinus className="w-3.5 h-3.5 flex-shrink-0" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      if (window.confirm('本当に退出しますか？')) navigate('/');
+                    }}
+                    className="flex items-center justify-center gap-2 text-sm font-bold text-red-500 hover:bg-red-50 p-2 rounded-xl transition-colors mt-2"
+                  >
+                    <LogOut className="w-4 h-4" /> 退出する
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* 下部：アクションエリア */}

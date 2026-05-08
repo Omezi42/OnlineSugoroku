@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from '../../../components/ui/GlassCard';
+import { PlayerIcon } from '../../../components/ui/PlayerIcon';
 import type { Player } from '../../../types/game';
 import type { ParameterDef } from '../../../types/board';
 
@@ -45,7 +46,7 @@ export const PlayerStatusPanel = ({
               >
                 {/* ヘッダー行 */}
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xl">{p.icon}</span>
+                  <PlayerIcon icon={p.icon} size="md" />
                   <span className="font-medium text-sm flex-1 truncate">{p.name}</span>
                   {isMe && (
                     <span className="text-[10px] bg-purple-200 text-purple-700 px-1.5 py-0.5 rounded-full font-bold">
