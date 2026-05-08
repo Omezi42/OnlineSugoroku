@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEditorStore } from '../store';
 import {
   Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2,
-  Copy, ClipboardPaste, Rows3, Workflow, CircleDot, PanelTopOpen, Map, Maximize2,
+  Copy, ClipboardPaste, Rows3, Workflow, CircleDot, PanelTopOpen, Map as MapIcon, Maximize2,
 } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import type { NodeData } from '../../../types/board';
@@ -20,17 +20,31 @@ function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): ValidationResult
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // スタートマスのチェック
   const playableNodes = nodes.filter(n => n.data.nodeType !== 'area');
+  const nodeIds = new Set(playableNodes.map((node) => node.id));
+  const edgeIds = new Set(edges.map((edge) => edge.id));
+  const outgoing = new Map<string, string[]>();
+  edges.forEach((edge) => {
+    if (!nodeIds.has(edge.source)) errors.push(`存在しないマスからルートが伸びています: ${edge.source}`);
+    if (!nodeIds.has(edge.target)) errors.push(`存在しないマスへルートが接続されています: ${edge.target}`);
+    if (!outgoing.has(edge.source)) outgoing.set(edge.source, []);
+    outgoing.get(edge.source)?.push(edge.target);
+  });
+
+  const duplicatedLabels = playableNodes
+    .map((node) => node.data.label?.trim())
+    .filter((label, index, labels): label is string => Boolean(label) && labels.indexOf(label) !== index);
+  if (duplicatedLabels.length > 0) {
+    warnings.push(`同じ名前のマスがあります: ${Array.from(new Set(duplicatedLabels)).join(', ')}`);
+  }
+
   const startNodes = playableNodes.filter(n => n.data.nodeType === 'start');
   if (startNodes.length === 0) errors.push('スタートマスが配置されていません');
   if (startNodes.length > 1) warnings.push(`スタートマスが${startNodes.length}個あります（通常は1つ）`);
 
-  // ゴールマスのチェック
   const goalNodes = playableNodes.filter(n => n.data.nodeType === 'goal');
   if (goalNodes.length === 0) errors.push('ゴールマスが配置されていません');
 
-  // 孤立ノードのチェック
   const connectedNodeIds = new Set<string>();
   edges.forEach((edge) => { connectedNodeIds.add(edge.source); connectedNodeIds.add(edge.target); });
   const isolated = playableNodes.filter((node) => !connectedNodeIds.has(node.id) && playableNodes.length > 1);
@@ -38,20 +52,61 @@ function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): ValidationResult
     warnings.push(`${isolated.length}個のマスがどこにも繋がっていません: ${isolated.map((node) => node.data.label).join(', ')}`);
   }
 
-  // ラベルなしノードのチェック
   const unnamed = playableNodes.filter((node) => !node.data.label || node.data.label.trim() === '');
   if (unnamed.length > 0) warnings.push(`${unnamed.length}個のマスにラベルが未設定です`);
 
+  if (startNodes[0]) {
+    const reachable = new Set<string>();
+    const queue = [startNodes[0].id];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current || reachable.has(current)) continue;
+      reachable.add(current);
+      outgoing.get(current)?.forEach((target) => {
+        if (!reachable.has(target)) queue.push(target);
+      });
+    }
+    const unreachable = playableNodes.filter((node) => !reachable.has(node.id));
+    if (unreachable.length > 0) {
+      warnings.push(`スタートから到達できないマスがあります: ${unreachable.map((node) => node.data.label).join(', ')}`);
+    }
+    const canReachGoal = goalNodes.some((goal) => reachable.has(goal.id));
+    if (goalNodes.length > 0 && !canReachGoal) {
+      errors.push('スタートからゴールまで繋がるルートがありません');
+    }
+  }
+
+  playableNodes
+    .filter((node) => node.data.nodeType !== 'goal' && (outgoing.get(node.id)?.length || 0) === 0)
+    .forEach((node) => {
+      warnings.push(`「${node.data.label}」から先へ進むルートがありません`);
+    });
+
   playableNodes.forEach((node) => {
     node.data.actions?.forEach((action) => {
+      if (action.type === 'warp' && !nodeIds.has(action.targetNodeId)) {
+        errors.push(`「${node.data.label}」のワープ先が見つかりません`);
+      }
       if (action.type === 'conditionBranch') {
         if (!action.trueEdgeId || !action.falseEdgeId) {
           warnings.push(`「${node.data.label}」の条件分岐に、成立時/不成立時のルート指定が不足しています`);
+        }
+        if (action.trueEdgeId && !edgeIds.has(action.trueEdgeId)) {
+          errors.push(`「${node.data.label}」の条件成立ルートが存在しません`);
+        }
+        if (action.falseEdgeId && !edgeIds.has(action.falseEdgeId)) {
+          errors.push(`「${node.data.label}」の条件不成立ルートが存在しません`);
         }
       }
       if (action.type === 'randomBranch') {
         if (!action.successEdgeId || !action.failureEdgeId) {
           warnings.push(`「${node.data.label}」のランダム分岐に、成功時/失敗時のルート指定が不足しています`);
+        }
+        if (action.successEdgeId && !edgeIds.has(action.successEdgeId)) {
+          errors.push(`「${node.data.label}」のランダム成功ルートが存在しません`);
+        }
+        if (action.failureEdgeId && !edgeIds.has(action.failureEdgeId)) {
+          errors.push(`「${node.data.label}」のランダム失敗ルートが存在しません`);
         }
       }
     });
@@ -239,7 +294,7 @@ export const EditorToolbar = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
             title="色付きのエリアを追加"
           >
-            <Map className="w-3.5 h-3.5" />
+            <MapIcon className="w-3.5 h-3.5" />
             エリア
           </button>
           <button

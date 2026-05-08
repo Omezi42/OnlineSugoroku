@@ -1,36 +1,124 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import { Canvas } from './canvas/Canvas';
 import { Sidebar } from './panels/Sidebar';
 import { NodeConfigPanel } from './panels/NodeConfigPanel';
 import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
-import { saveBoard } from '../../services/boardService';
-import { Loader2, Play, Copy, Check, X, Globe2 } from 'lucide-react';
+import { loadBoard, saveBoard } from '../../services/boardService';
+import { Loader2, Play, Copy, Check, X, Globe2, RotateCcw, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from '../../components/ui/GlassCard';
 
 export default function Editor() {
   const navigate = useNavigate();
+  const { boardId: routeBoardId } = useParams();
+  const draftKey = useMemo(() => `online-sugoroku-editor-draft-${routeBoardId || 'new'}`, [routeBoardId]);
   const { nodes, edges, boardSettings } = useEditorStore();
+  const [currentBoardId, setCurrentBoardId] = useState<string | null>(routeBoardId || null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingBoard, setIsLoadingBoard] = useState(false);
   const [boardName, setBoardName] = useState('名称未設定のすごろく');
   const [isPublic, setIsPublic] = useState(false);
   const [savedBoardId, setSavedBoardId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [draftAvailable, setDraftAvailable] = useState(() => Boolean(localStorage.getItem(draftKey)));
+
+  useEffect(() => {
+    if (!routeBoardId) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingBoard(true);
+    loadBoard(routeBoardId)
+      .then((board) => {
+        if (cancelled) return;
+        if (!board) {
+          alert('編集する盤面が見つかりませんでした。');
+          navigate('/editor');
+          return;
+        }
+        useEditorStore.setState({
+          nodes: board.nodes,
+          edges: board.edges,
+          boardSettings: board.settings,
+          past: [],
+          future: [],
+          clipboard: null,
+        });
+        setCurrentBoardId(board.id || routeBoardId);
+        setBoardName(board.name || '名称未設定のすごろく');
+        setIsPublic(Boolean(board.isPublic));
+        setDraftAvailable(Boolean(localStorage.getItem(draftKey)));
+      })
+      .catch(() => {
+        if (!cancelled) alert('盤面の読み込みに失敗しました。');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingBoard(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [draftKey, navigate, routeBoardId]);
+
+  useEffect(() => {
+    if (draftAvailable || isLoadingBoard) return;
+    const draft = {
+      savedAt: new Date().toISOString(),
+      boardId: currentBoardId,
+      name: boardName,
+      isPublic,
+      nodes,
+      edges,
+      settings: boardSettings,
+    };
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+  }, [boardName, boardSettings, currentBoardId, draftAvailable, draftKey, edges, isLoadingBoard, isPublic, nodes]);
+
+  const handleRestoreDraft = () => {
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw);
+      useEditorStore.setState({
+        nodes: draft.nodes,
+        edges: draft.edges,
+        boardSettings: draft.settings,
+        past: [],
+        future: [],
+        clipboard: null,
+      });
+      setCurrentBoardId(draft.boardId || routeBoardId || null);
+      setBoardName(draft.name || '名称未設定のすごろく');
+      setIsPublic(Boolean(draft.isPublic));
+      setDraftAvailable(false);
+    } catch {
+      alert('下書きの復元に失敗しました。');
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(draftKey);
+    setDraftAvailable(false);
+  };
 
   const handleSave = async () => {
     try {
       setIsSaving(true);
       const boardId = await saveBoard({
+        id: currentBoardId || undefined,
         name: boardName,
         nodes,
         edges,
         settings: boardSettings,
         isPublic,
       });
+      setCurrentBoardId(boardId);
       setSavedBoardId(boardId);
+      localStorage.removeItem(draftKey);
+      setDraftAvailable(false);
     } catch (error) {
       console.error('Failed to save board:', error);
       alert('保存に失敗しました。');
@@ -55,10 +143,43 @@ export default function Editor() {
   return (
     <ReactFlowProvider>
       <div className="flex h-screen w-full bg-slate-50 overflow-hidden relative">
+        {isLoadingBoard && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/70 backdrop-blur-sm">
+            <div className="glass-panel rounded-2xl px-6 py-4 flex items-center gap-3 font-bold text-slate-700 shadow-xl">
+              <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+              盤面を読み込み中...
+            </div>
+          </div>
+        )}
         <Sidebar />
         <Canvas />
         <NodeConfigPanel />
         <EditorToolbar />
+
+      {draftAvailable && (
+        <div className="absolute top-20 left-72 z-30 pointer-events-auto">
+          <div className="glass-panel rounded-2xl px-4 py-3 shadow-xl flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-slate-800">前回の下書きがあります</p>
+              <p className="text-xs text-slate-500">未保存の編集内容を復元できます。</p>
+            </div>
+            <button
+              onClick={handleRestoreDraft}
+              className="px-3 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 transition-colors flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              復元
+            </button>
+            <button
+              onClick={handleDiscardDraft}
+              className="px-3 py-1.5 rounded-xl bg-white/70 text-slate-600 text-xs font-bold hover:bg-white transition-colors"
+            >
+              破棄
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* ヘッダー的なオーバーレイ（保存ボタンなど） */}
       <div className="absolute top-4 left-72 right-4 flex justify-between items-center pointer-events-none">

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Play, PenTool, Sparkles, Users, X, ArrowRight, GalleryHorizontalEnd, Loader2 } from 'lucide-react';
+import { Play, PenTool, Sparkles, Users, X, ArrowRight, GalleryHorizontalEnd, Loader2, Pencil } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { listBoards } from '../../services/boardService';
@@ -151,12 +151,22 @@ export default function Home() {
                     <Play className="w-5 h-5" />
                   </div>
                 </div>
-                <button
-                  onClick={() => board.id && navigate(`/play/${board.id}/room-${Date.now().toString(36)}`)}
-                  className="mt-4 w-full py-2 rounded-xl bg-white/70 text-sm font-bold text-purple-700 hover:bg-purple-50 transition-colors"
-                >
-                  この盤面で遊ぶ
-                </button>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => board.id && navigate(`/editor/${board.id}`)}
+                    className="py-2 rounded-xl bg-white/70 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    編集
+                  </button>
+                  <button
+                    onClick={() => board.id && navigate(`/play/${board.id}/room-${Date.now().toString(36)}`)}
+                    className="py-2 rounded-xl bg-white/70 text-sm font-bold text-purple-700 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Play className="w-4 h-4" />
+                    遊ぶ
+                  </button>
+                </div>
               </GlassCard>
             ))}
           </div>
