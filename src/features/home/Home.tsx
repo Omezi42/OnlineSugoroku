@@ -80,7 +80,8 @@ export default function Home() {
     if (!value) return;
     try {
       const url = new URL(value);
-      const path = url.pathname.replace(import.meta.env.BASE_URL, '/');
+      // HashRouterを使っている場合、パスは url.hash (# 以降) に格納される
+      const path = url.hash ? url.hash.slice(1) : url.pathname.replace(import.meta.env.BASE_URL, '/');
       navigate(path.startsWith('/play/') ? path : `/play/${value}`);
     } catch {
       navigate(`/play/${value}`);
