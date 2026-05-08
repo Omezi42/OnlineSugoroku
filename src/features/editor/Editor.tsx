@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertCircle, Check, Copy, Globe2, Loader2, Play, RotateCcw, X } from 'lucide-react';
+import { AlertCircle, Check, Copy, Globe2, Loader2, Play, RotateCcw, X, Home } from 'lucide-react';
 import { Canvas } from './canvas/Canvas';
 import { Sidebar } from './panels/Sidebar';
 import { NodeConfigPanel } from './panels/NodeConfigPanel';
@@ -218,41 +218,50 @@ export default function Editor() {
           </div>
         )}
 
-        <div className="absolute top-4 left-72 right-4 flex justify-between items-start pointer-events-none gap-3">
-          <div className="glass-panel px-4 py-3 rounded-xl pointer-events-auto shadow-sm flex flex-col gap-2">
-            <input
-              type="text"
-              value={boardName}
-              onChange={(event) => setBoardName(event.target.value)}
-              className="font-bold text-slate-800 bg-transparent outline-none w-72"
-              placeholder="盤面の名前"
-            />
-            <div className="flex gap-2">
+        <div className="absolute top-4 left-72 right-4 flex flex-wrap justify-between items-start pointer-events-none gap-3">
+          <div className="flex flex-wrap gap-2 pointer-events-auto">
+            <button
+              onClick={() => navigate('/')}
+              className="glass-panel px-3 py-3 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center h-[52px]"
+              title="ホームに戻る"
+            >
+              <Home className="w-5 h-5" />
+            </button>
+            <div className="glass-panel px-4 py-3 rounded-xl shadow-sm flex flex-col gap-2 min-w-[280px]">
               <input
                 type="text"
-                value={boardDescription}
-                onChange={(event) => setBoardDescription(event.target.value)}
-                className="text-xs text-slate-500 bg-transparent outline-none w-52"
-                placeholder="説明を追加"
-                maxLength={80}
+                value={boardName}
+                onChange={(event) => setBoardName(event.target.value)}
+                className="font-bold text-slate-800 bg-transparent outline-none w-full"
+                placeholder="盤面の名前"
               />
-              <input
-                type="text"
-                value={authorName}
-                onChange={(event) => setAuthorName(event.target.value)}
-                className="text-xs text-slate-500 bg-transparent outline-none w-32"
-                placeholder="作者名"
-                maxLength={24}
-              />
-              <select
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-                className="text-xs text-slate-600 bg-white/60 rounded-lg px-2 outline-none"
-              >
-                {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-              </select>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="text"
+                  value={boardDescription}
+                  onChange={(event) => setBoardDescription(event.target.value)}
+                  className="text-xs text-slate-500 bg-transparent outline-none flex-1 min-w-[120px]"
+                  placeholder="説明を追加"
+                  maxLength={80}
+                />
+                <input
+                  type="text"
+                  value={authorName}
+                  onChange={(event) => setAuthorName(event.target.value)}
+                  className="text-xs text-slate-500 bg-transparent outline-none w-24"
+                  placeholder="作者名"
+                  maxLength={24}
+                />
+                <select
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                  className="text-xs text-slate-600 bg-white/60 rounded-lg px-2 py-0.5 outline-none"
+                >
+                  {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                </select>
+              </div>
+              {!canEdit && <p className="text-xs font-bold text-amber-600">編集権限がないため、保存時にコピーを作成します。</p>}
             </div>
-            {!canEdit && <p className="text-xs font-bold text-amber-600">編集権限がないため、保存時にコピーを作成します。</p>}
           </div>
           <div className="pointer-events-auto flex items-center gap-3">
             <label className="glass-panel px-3 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">

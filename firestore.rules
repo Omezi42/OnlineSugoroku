@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Boards (盤面データ)
+    match /boards/{boardId} {
+      // 誰でも作成可能
+      allow create: if true;
+      // 読み取り：公開されている、または自分が所有者の場合
+      allow read: if resource.data.isPublic == true || resource.data.ownerId == request.auth.uid;
+      // 更新・削除：自分が所有者の場合のみ
+      allow update, delete: if resource.data.ownerId == request.auth.uid;
+    }
+
+    // Games / Rooms (プレイデータ)
+    // プレイデータはオンライン同期のため、全参加者がアクセスできるようにする必要がある
+    match /games/{gameId} {
+      allow read, write: if true;
+    }
+  }
+}
