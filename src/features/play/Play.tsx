@@ -31,7 +31,7 @@ const nodeTypes: Record<string, any> = {
   custom: CustomNode,
 };
 
-function PlayInner({ roomId }: { roomId: string }) {
+function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const { gameState, isLoading } = useGameSync(roomId);
   const [boardData, setBoardData] = useState<BoardData | null>(null);
   const [localPlayerId, setLocalPlayerId] = useState<string>('');
@@ -42,7 +42,7 @@ function PlayInner({ roomId }: { roomId: string }) {
   // 初回参加処理
   useEffect(() => {
     const init = async () => {
-      const board = await loadBoard(roomId);
+      const board = await loadBoard(boardId);
       if (!board) { alert('盤面が見つかりません'); return; }
       setBoardData(board);
 
@@ -74,11 +74,11 @@ function PlayInner({ roomId }: { roomId: string }) {
         await joinGameRoom(roomId, newPlayer);
       } catch {
         newPlayer.isHost = true;
-        await createGameRoom(roomId, roomId, newPlayer);
+        await createGameRoom(roomId, boardId, newPlayer);
       }
     };
     init();
-  }, [roomId]);
+  }, [boardId, roomId]);
 
   // ゲーム終了検知
   useEffect(() => {
@@ -207,16 +207,42 @@ function PlayInner({ roomId }: { roomId: string }) {
           updatedPlayer.position = result.warpTarget;
         }
 
+        // 条件分岐・ランダム分岐で選ばれた専用ルート
+        if (result.branchTarget) {
+          updatedPlayer.position = result.branchTarget;
+        }
+
         // 追加移動
         if (result.additionalMoveSteps) {
           if (result.additionalMoveDirection === 'back') {
             updatedPlayer.position = movePlayerBack(updatedPlayer.position, result.additionalMoveSteps, boardData.nodes, boardData.edges);
           } else {
             const additionalMove = movePlayer(updatedPlayer.position, result.additionalMoveSteps, boardData.nodes, boardData.edges);
+            if (additionalMove.needsBranchChoice && additionalMove.branchOptions) {
+              await updateGameState(roomId, {
+                logs,
+                [`players.${updatedPlayer.id}`]: updatedPlayer,
+                pendingInteraction: {
+                  playerId: updatedPlayer.id,
+                  type: 'branch',
+                  nodeId: additionalMove.finalNodeId,
+                  branchOptions: additionalMove.branchOptions,
+                },
+              } as any);
+              return;
+            }
             updatedPlayer.position = additionalMove.finalNodeId;
           }
         }
       }
+    }
+
+    // アクションによる追加移動・ワープ後にゴールへ到達した場合も判定する
+    if (!updatedPlayer.hasGoal && checkGoal(updatedPlayer.position, boardData.nodes)) {
+      const goalOrder = Object.values(gameState.players).filter(p => p.hasGoal).length + 1;
+      updatedPlayer.hasGoal = true;
+      updatedPlayer.rank = goalOrder;
+      logs.push(createLog(`🏁 ${player.name} が ${goalOrder}位でゴール！！`, 'action'));
     }
 
     // ターン終了 → 次のプレイヤーへ
@@ -473,12 +499,14 @@ function PlayInner({ roomId }: { roomId: string }) {
 }
 
 export default function Play() {
-  const { roomId } = useParams();
-  if (!roomId) return <div className="flex h-screen items-center justify-center text-slate-500">Invalid Room ID</div>;
+  const params = useParams();
+  const roomId = params.roomId || params.boardId;
+  const boardId = params.boardId || params.roomId;
+  if (!roomId || !boardId) return <div className="flex h-screen items-center justify-center text-slate-500">Invalid Room ID</div>;
 
   return (
     <ReactFlowProvider>
-      <PlayInner roomId={roomId} />
+      <PlayInner boardId={boardId} roomId={roomId} />
     </ReactFlowProvider>
   );
 }

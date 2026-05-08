@@ -1,16 +1,17 @@
 import { useCallback, useRef } from 'react';
-import { ReactFlow, Background, Controls, MiniMap, ReactFlowProvider, useReactFlow } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, useReactFlow } from '@xyflow/react';
+import type { NodeTypes } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { useEditorStore } from '../store';
 import { CustomNode } from './CustomNode';
 import type { NodeType, NodeSize } from '../../../types/board';
 
-const nodeTypes: any = {
+const nodeTypes: NodeTypes = {
   custom: CustomNode,
 };
 
-function CanvasInner() {
+export const Canvas = () => {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode } = useEditorStore();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -64,6 +65,8 @@ function CanvasInner() {
         onDragOver={onDragOver}
         onDrop={onDrop}
         fitView
+        selectionOnDrag
+        multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
         connectionLineStyle={{ stroke: '#a855f7', strokeWidth: 3 }}
         defaultEdgeOptions={{
           style: { stroke: '#a855f7', strokeWidth: 2 },
@@ -75,13 +78,5 @@ function CanvasInner() {
         <MiniMap className="bg-white/80 backdrop-blur-md rounded-xl shadow-lg" />
       </ReactFlow>
     </div>
-  );
-}
-
-export const Canvas = () => {
-  return (
-    <ReactFlowProvider>
-      <CanvasInner />
-    </ReactFlowProvider>
   );
 };

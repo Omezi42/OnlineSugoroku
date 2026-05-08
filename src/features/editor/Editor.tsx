@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ReactFlowProvider } from '@xyflow/react';
 import { Canvas } from './canvas/Canvas';
 import { Sidebar } from './panels/Sidebar';
 import { NodeConfigPanel } from './panels/NodeConfigPanel';
 import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
 import { saveBoard } from '../../services/boardService';
-import { Loader2, Play, Copy, Check, X } from 'lucide-react';
+import { Loader2, Play, Copy, Check, X, Globe2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from '../../components/ui/GlassCard';
 
@@ -15,6 +16,7 @@ export default function Editor() {
   const { nodes, edges, boardSettings } = useEditorStore();
   const [isSaving, setIsSaving] = useState(false);
   const [boardName, setBoardName] = useState('名称未設定のすごろく');
+  const [isPublic, setIsPublic] = useState(false);
   const [savedBoardId, setSavedBoardId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -26,6 +28,7 @@ export default function Editor() {
         nodes,
         edges,
         settings: boardSettings,
+        isPublic,
       });
       setSavedBoardId(boardId);
     } catch (error) {
@@ -36,7 +39,12 @@ export default function Editor() {
     }
   };
 
-  const shareUrl = savedBoardId ? `${window.location.origin}/play/${savedBoardId}` : '';
+  const shareUrl = savedBoardId ? `${window.location.origin}${import.meta.env.BASE_URL}play/${savedBoardId}` : '';
+
+  const handleTestPlay = () => {
+    if (!savedBoardId) return;
+    navigate(`/play/${savedBoardId}/test-${Date.now().toString(36)}`);
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl);
@@ -45,11 +53,12 @@ export default function Editor() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 overflow-hidden relative">
-      <Sidebar />
-      <Canvas />
-      <NodeConfigPanel />
-      <EditorToolbar />
+    <ReactFlowProvider>
+      <div className="flex h-screen w-full bg-slate-50 overflow-hidden relative">
+        <Sidebar />
+        <Canvas />
+        <NodeConfigPanel />
+        <EditorToolbar />
       
       {/* ヘッダー的なオーバーレイ（保存ボタンなど） */}
       <div className="absolute top-4 left-72 right-4 flex justify-between items-center pointer-events-none">
@@ -62,7 +71,17 @@ export default function Editor() {
             placeholder="盤面の名前"
           />
         </div>
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto flex items-center gap-3">
+          <label className="glass-panel px-3 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+              className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500"
+            />
+            <Globe2 className="w-4 h-4 text-purple-500" />
+            みんなの盤面に表示
+          </label>
           <button 
             onClick={handleSave}
             disabled={isSaving}
@@ -103,6 +122,9 @@ export default function Editor() {
                 <p className="text-slate-500 mb-6">
                   あなたのすごろくがクラウドに保存されました。<br/>URLを共有してみんなで遊ぼう！
                 </p>
+                <div className={`mb-4 rounded-xl px-3 py-2 text-sm font-bold ${isPublic ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {isPublic ? 'みんなの盤面に表示されます' : '非公開で保存されています'}
+                </div>
 
                 <div className="bg-white/50 border border-slate-200 rounded-lg p-2 flex items-center gap-2 mb-6">
                   <input 
@@ -122,7 +144,7 @@ export default function Editor() {
 
                 <div className="flex flex-col gap-3">
                   <button
-                    onClick={() => navigate(`/play/${savedBoardId}`)}
+                    onClick={handleTestPlay}
                     className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
                   >
                     <Play className="w-5 h-5" />
@@ -140,6 +162,7 @@ export default function Editor() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </ReactFlowProvider>
   );
 }

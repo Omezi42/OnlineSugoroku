@@ -116,6 +116,7 @@ export interface ActionResult {
   additionalMoveSteps?: number; // moveN/backNなどで追加移動が必要
   additionalMoveDirection?: 'forward' | 'back';
   warpTarget?: string; // ワープ先ノードID
+  branchTarget?: string; // 条件/ランダム分岐で選ばれた移動先
 }
 
 /**
@@ -126,11 +127,11 @@ export function processAction(
   player: Player,
   gameState: GameState,
   nodes: Node<NodeData>[],
-  _edges: Edge[],
+  edges: Edge[],
   settings: BoardSettings
 ): ActionResult {
   const logs: LogEntry[] = [];
-  let updatedPlayer = { ...player, params: { ...player.params } };
+  const updatedPlayer = { ...player, params: { ...player.params } };
 
   switch (action.type) {
     case 'paramChange': {
@@ -155,33 +156,26 @@ export function processAction(
       return { updatedPlayer, logs };
 
     case 'diceMove': {
-      // サイコロを振って移動 → pendingInteractionで処理
-      logs.push(createLog(`${player.name} がサイコロで移動する！`, 'action'));
+      const roll = rollDice(settings.diceType);
+      logs.push(createLog(`${player.name} がイベントサイコロで ${roll} を出した！`, 'action'));
       return {
         updatedPlayer,
         logs,
-        pendingInteraction: {
-          playerId: player.id,
-          type: 'minigame', // diceMove用に再利用
-          nodeId: player.position,
-          action,
-        },
+        additionalMoveSteps: roll,
+        additionalMoveDirection: 'forward',
       };
     }
 
     case 'diceParam': {
-      // サイコロを振ってパラメータ変動 → pendingInteraction
+      const roll = rollDice(settings.diceType);
       const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
-      logs.push(createLog(`${player.name} がサイコロで${paramName}を変動させる！`, 'action'));
+      const amount = roll * action.multiplier;
+      updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + amount;
+      const sign = amount >= 0 ? '+' : '';
+      logs.push(createLog(`${player.name} がイベントサイコロで ${roll} を出した！ ${paramName} ${sign}${amount}（→ ${updatedPlayer.params[action.paramId]}）`, 'action'));
       return {
         updatedPlayer,
         logs,
-        pendingInteraction: {
-          playerId: player.id,
-          type: 'minigame',
-          nodeId: player.position,
-          action,
-        },
       };
     }
 
@@ -218,7 +212,13 @@ export function processAction(
       }
       const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
       logs.push(createLog(`条件判定: ${paramName} ${action.operator} ${action.value} → ${conditionMet ? '✅ 成立' : '❌ 不成立'}`, 'action'));
-      // 条件分岐の結果はエッジのラベル（true/false）で判定。ここではログだけ
+      const selectedEdgeId = conditionMet ? action.trueEdgeId : action.falseEdgeId;
+      const selectedEdge = edges.find(edge => edge.id === selectedEdgeId);
+      if (selectedEdge) {
+        const targetLabel = getNodeById(selectedEdge.target, nodes)?.data.label || selectedEdge.target;
+        logs.push(createLog(`🔀 ${conditionMet ? '成立' : '不成立'}ルートで「${targetLabel}」へ進む`, 'move'));
+        return { updatedPlayer, logs, branchTarget: selectedEdge.target };
+      }
       return { updatedPlayer, logs };
     }
 
@@ -226,6 +226,13 @@ export function processAction(
       const roll = Math.random() * 100;
       const success = roll < action.probability;
       logs.push(createLog(`ランダム判定: ${action.probability}% → ${success ? '✅ 成功！' : '❌ 失敗…'}`, 'action'));
+      const selectedEdgeId = success ? action.successEdgeId : action.failureEdgeId;
+      const selectedEdge = edges.find(edge => edge.id === selectedEdgeId);
+      if (selectedEdge) {
+        const targetLabel = getNodeById(selectedEdge.target, nodes)?.data.label || selectedEdge.target;
+        logs.push(createLog(`🎰 ${success ? '成功' : '失敗'}ルートで「${targetLabel}」へ進む`, 'move'));
+        return { updatedPlayer, logs, branchTarget: selectedEdge.target };
+      }
       return { updatedPlayer, logs };
     }
 

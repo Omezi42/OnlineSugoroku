@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useReactFlow } from '@xyflow/react';
+import type { Edge, Node } from '@xyflow/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEditorStore } from '../store';
-import { Download, Upload, CheckCircle, AlertTriangle, Search, X } from 'lucide-react';
+import {
+  Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2,
+  Copy, ClipboardPaste, Rows3, Workflow, CircleDot, PanelTopOpen, Map, Maximize2,
+} from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
+import type { NodeData } from '../../../types/board';
 
 interface ValidationResult {
   ok: boolean;
@@ -10,40 +16,87 @@ interface ValidationResult {
   warnings: string[];
 }
 
-function validateBoard(nodes: any[], edges: any[]): ValidationResult {
+function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
   // スタートマスのチェック
-  const startNodes = nodes.filter(n => n.data.nodeType === 'start');
+  const playableNodes = nodes.filter(n => n.data.nodeType !== 'area');
+  const startNodes = playableNodes.filter(n => n.data.nodeType === 'start');
   if (startNodes.length === 0) errors.push('スタートマスが配置されていません');
   if (startNodes.length > 1) warnings.push(`スタートマスが${startNodes.length}個あります（通常は1つ）`);
 
   // ゴールマスのチェック
-  const goalNodes = nodes.filter(n => n.data.nodeType === 'goal');
+  const goalNodes = playableNodes.filter(n => n.data.nodeType === 'goal');
   if (goalNodes.length === 0) errors.push('ゴールマスが配置されていません');
 
   // 孤立ノードのチェック
   const connectedNodeIds = new Set<string>();
-  edges.forEach((e: any) => { connectedNodeIds.add(e.source); connectedNodeIds.add(e.target); });
-  const isolated = nodes.filter((n: any) => !connectedNodeIds.has(n.id) && nodes.length > 1);
+  edges.forEach((edge) => { connectedNodeIds.add(edge.source); connectedNodeIds.add(edge.target); });
+  const isolated = playableNodes.filter((node) => !connectedNodeIds.has(node.id) && playableNodes.length > 1);
   if (isolated.length > 0) {
-    warnings.push(`${isolated.length}個のマスがどこにも繋がっていません: ${isolated.map((n: any) => n.data.label).join(', ')}`);
+    warnings.push(`${isolated.length}個のマスがどこにも繋がっていません: ${isolated.map((node) => node.data.label).join(', ')}`);
   }
 
   // ラベルなしノードのチェック
-  const unnamed = nodes.filter((n: any) => !n.data.label || n.data.label.trim() === '');
+  const unnamed = playableNodes.filter((node) => !node.data.label || node.data.label.trim() === '');
   if (unnamed.length > 0) warnings.push(`${unnamed.length}個のマスにラベルが未設定です`);
+
+  playableNodes.forEach((node) => {
+    node.data.actions?.forEach((action) => {
+      if (action.type === 'conditionBranch') {
+        if (!action.trueEdgeId || !action.falseEdgeId) {
+          warnings.push(`「${node.data.label}」の条件分岐に、成立時/不成立時のルート指定が不足しています`);
+        }
+      }
+      if (action.type === 'randomBranch') {
+        if (!action.successEdgeId || !action.failureEdgeId) {
+          warnings.push(`「${node.data.label}」のランダム分岐に、成功時/失敗時のルート指定が不足しています`);
+        }
+      }
+    });
+  });
 
   return { ok: errors.length === 0, errors, warnings };
 }
 
 export const EditorToolbar = () => {
-  const { nodes, edges } = useEditorStore();
+  const {
+    nodes, edges, past, future, clipboard,
+    undo, redo, copySelected, pasteClipboard, applyLayout, applyTemplate, addArea,
+  } = useEditorStore();
+  const { fitView } = useReactFlow();
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showLayouts, setShowLayouts] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isMac = navigator.platform.toLowerCase().includes('mac');
+      const command = isMac ? event.metaKey : event.ctrlKey;
+      if (!command) return;
+      if (event.key.toLowerCase() === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      }
+      if ((event.key.toLowerCase() === 'z' && event.shiftKey) || event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        redo();
+      }
+      if (event.key.toLowerCase() === 'c') {
+        copySelected();
+      }
+      if (event.key.toLowerCase() === 'v') {
+        event.preventDefault();
+        pasteClipboard();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [copySelected, pasteClipboard, redo, undo]);
 
   // JSONエクスポート
   const handleExport = () => {
@@ -125,6 +178,80 @@ export const EditorToolbar = () => {
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
         <div className="glass-panel px-3 py-2 rounded-2xl shadow-xl flex items-center gap-2">
           <button
+            onClick={undo}
+            disabled={past.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors disabled:opacity-40"
+            title="元に戻す"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+            戻す
+          </button>
+          <button
+            onClick={redo}
+            disabled={future.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors disabled:opacity-40"
+            title="やり直す"
+          >
+            <Redo2 className="w-3.5 h-3.5" />
+            やり直し
+          </button>
+          <div className="w-px h-6 bg-slate-300" />
+          <button
+            onClick={copySelected}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
+            title="選択中のマスをコピー"
+          >
+            <Copy className="w-3.5 h-3.5" />
+            コピー
+          </button>
+          <button
+            onClick={pasteClipboard}
+            disabled={!clipboard}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors disabled:opacity-40"
+            title="コピーしたマスを貼り付け"
+          >
+            <ClipboardPaste className="w-3.5 h-3.5" />
+            貼付
+          </button>
+          <div className="w-px h-6 bg-slate-300" />
+          <button
+            onClick={() => setShowTemplates(!showTemplates)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${
+              showTemplates ? 'bg-pink-100 text-pink-700' : 'bg-white/70 hover:bg-white text-slate-700'
+            }`}
+            title="テンプレートを展開"
+          >
+            <PanelTopOpen className="w-3.5 h-3.5" />
+            テンプレ
+          </button>
+          <button
+            onClick={() => setShowLayouts(!showLayouts)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${
+              showLayouts ? 'bg-blue-100 text-blue-700' : 'bg-white/70 hover:bg-white text-slate-700'
+            }`}
+            title="マスを自動整列"
+          >
+            <Rows3 className="w-3.5 h-3.5" />
+            整列
+          </button>
+          <button
+            onClick={addArea}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
+            title="色付きのエリアを追加"
+          >
+            <Map className="w-3.5 h-3.5" />
+            エリア
+          </button>
+          <button
+            onClick={() => fitView({ padding: 0.2, duration: 500 })}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
+            title="盤面全体を表示"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            全体表示
+          </button>
+          <div className="w-px h-6 bg-slate-300" />
+          <button
             onClick={handleExport}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
             title="盤面をJSONファイルで保存"
@@ -162,6 +289,79 @@ export const EditorToolbar = () => {
           </button>
         </div>
       </div>
+
+      {/* テンプレート展開 */}
+      <AnimatePresence>
+        {showTemplates && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto"
+          >
+            <GlassCard className="w-[420px] p-4 shadow-xl">
+              <h3 className="text-sm font-bold text-slate-800 mb-3">テンプレートを展開</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: 'simple', label: 'シンプル', icon: Rows3 },
+                  { key: 'branch', label: '分岐ルート', icon: Workflow },
+                  { key: 'long', label: 'ロング', icon: CircleDot },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      applyTemplate(item.key as 'simple' | 'branch' | 'long');
+                      setShowTemplates(false);
+                      setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 50);
+                    }}
+                    className="flex flex-col items-center gap-2 rounded-xl bg-white/70 p-3 text-xs font-bold text-slate-700 hover:bg-pink-50 hover:text-pink-700 transition-colors"
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-slate-500">現在の盤面を置き換えます。戻すボタンで直前の状態へ戻せます。</p>
+            </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 自動整列 */}
+      <AnimatePresence>
+        {showLayouts && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto"
+          >
+            <GlassCard className="w-[360px] p-4 shadow-xl">
+              <h3 className="text-sm font-bold text-slate-800 mb-3">自動レイアウト</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: 'line', label: '直線', icon: Rows3 },
+                  { key: 'zigzag', label: '蛇行', icon: Workflow },
+                  { key: 'circle', label: '円形', icon: CircleDot },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      applyLayout(item.key as 'line' | 'zigzag' | 'circle');
+                      setShowLayouts(false);
+                      setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 50);
+                    }}
+                    className="flex flex-col items-center gap-2 rounded-xl bg-white/70 p-3 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 検索パネル */}
       <AnimatePresence>

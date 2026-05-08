@@ -3,7 +3,7 @@ import { useEditorStore } from '../store';
 import type {
   Action, ActionType, ParamChangeAction, MoveNAction, BackNAction,
   RestAction, WarpAction, ConditionBranchAction, RandomBranchAction,
-  StealAction, MinigameAction, DiceParamAction,
+  StealAction, MinigameAction, DiceParamAction, Operator,
 } from '../../../types/board';
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -32,7 +32,14 @@ interface ActionEditorItemProps {
 // 個別のアクション編集UI
 const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps) => {
   const [isOpen, setIsOpen] = useState(true);
-  const { boardSettings, nodes } = useEditorStore();
+  const { boardSettings, nodes, edges } = useEditorStore();
+  const currentNode = nodes.find((node) => node.data.actions?.includes(action));
+  const outgoingEdges = currentNode ? edges.filter((edge) => edge.source === currentNode.id) : [];
+  const edgeLabel = (edgeId: string) => {
+    const edge = edges.find((item) => item.id === edgeId);
+    const target = edge ? nodes.find((node) => node.id === edge.target) : undefined;
+    return target?.data.label || edge?.label?.toString() || edgeId;
+  };
 
   return (
     <div className="border border-slate-200 rounded-xl bg-white/70 overflow-hidden">
@@ -157,7 +164,7 @@ const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps)
                 <select
                   className="w-20 p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
                   value={(action as ConditionBranchAction).operator}
-                  onChange={(e) => onUpdate({ ...action, operator: e.target.value } as any)}
+                  onChange={(e) => onUpdate({ ...action, operator: e.target.value as Operator } as ConditionBranchAction)}
                 >
                   <option value=">">{'>'}</option>
                   <option value=">=">{'>='}</option>
@@ -173,22 +180,70 @@ const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps)
                 />
               </div>
               <p className="text-xs text-slate-500 bg-blue-50 p-2 rounded leading-relaxed">
-                ※このマスで止まった時、この条件が成立したかどうかが判定されます。
-                <br />現状はプレイ画面に判定結果のログのみ表示されます。
-                <br />(将来的に、条件ごとの専用ルートを自動選択する機能を予定しています)
+                このマスから出ている線を条件成立時/不成立時のルートとして指定できます。
               </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-500 font-bold block mb-1">成立時の線</label>
+                  <select
+                    className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                    value={(action as ConditionBranchAction).trueEdgeId || ''}
+                    onChange={(e) => onUpdate({ ...action, trueEdgeId: e.target.value } as ConditionBranchAction)}
+                  >
+                    <option value="">未指定</option>
+                    {outgoingEdges.map(edge => <option key={edge.id} value={edge.id}>{edgeLabel(edge.id)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 font-bold block mb-1">不成立時の線</label>
+                  <select
+                    className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                    value={(action as ConditionBranchAction).falseEdgeId || ''}
+                    onChange={(e) => onUpdate({ ...action, falseEdgeId: e.target.value } as ConditionBranchAction)}
+                  >
+                    <option value="">未指定</option>
+                    {outgoingEdges.map(edge => <option key={edge.id} value={edge.id}>{edgeLabel(edge.id)}</option>)}
+                  </select>
+                </div>
+              </div>
             </div>
           )}
 
           {action.type === 'randomBranch' && (
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-slate-500 w-12">確率(%)</label>
-              <input
-                type="number" min={0} max={100}
-                className="flex-1 p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
-                value={(action as RandomBranchAction).probability}
-                onChange={(e) => onUpdate({ ...action, probability: Number(e.target.value) } as RandomBranchAction)}
-              />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-slate-500 w-12">確率(%)</label>
+                <input
+                  type="number" min={0} max={100}
+                  className="flex-1 p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                  value={(action as RandomBranchAction).probability}
+                  onChange={(e) => onUpdate({ ...action, probability: Number(e.target.value) } as RandomBranchAction)}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-500 font-bold block mb-1">成功時の線</label>
+                  <select
+                    className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                    value={(action as RandomBranchAction).successEdgeId || ''}
+                    onChange={(e) => onUpdate({ ...action, successEdgeId: e.target.value } as RandomBranchAction)}
+                  >
+                    <option value="">未指定</option>
+                    {outgoingEdges.map(edge => <option key={edge.id} value={edge.id}>{edgeLabel(edge.id)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 font-bold block mb-1">失敗時の線</label>
+                  <select
+                    className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                    value={(action as RandomBranchAction).failureEdgeId || ''}
+                    onChange={(e) => onUpdate({ ...action, failureEdgeId: e.target.value } as RandomBranchAction)}
+                  >
+                    <option value="">未指定</option>
+                    {outgoingEdges.map(edge => <option key={edge.id} value={edge.id}>{edgeLabel(edge.id)}</option>)}
+                  </select>
+                </div>
+              </div>
             </div>
           )}
 
@@ -197,7 +252,7 @@ const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps)
               <select
                 className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
                 value={(action as StealAction).target}
-                onChange={(e) => onUpdate({ ...action, target: e.target.value } as any)}
+                onChange={(e) => onUpdate({ ...action, target: e.target.value as StealAction['target'] } as StealAction)}
               >
                 <option value="random">ランダム</option>
                 <option value="select">選択</option>
@@ -225,7 +280,7 @@ const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps)
             <select
               className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
               value={(action as MinigameAction).gameType}
-              onChange={(e) => onUpdate({ ...action, gameType: e.target.value } as any)}
+              onChange={(e) => onUpdate({ ...action, gameType: e.target.value as MinigameAction['gameType'] } as MinigameAction)}
             >
               <option value="janken">じゃんけん</option>
               <option value="highlow">ハイ＆ロー</option>

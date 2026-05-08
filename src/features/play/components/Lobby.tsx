@@ -25,6 +25,7 @@ const cardVariants: Variants = {
 export const Lobby = ({ roomId, players, playerOrder, localPlayerId, onStartGame, onUpdateName, onUpdateIcon }: LobbyProps) => {
   const [name, setName] = useState('');
   const isHost = players[localPlayerId]?.isHost;
+  const canStart = isHost || playerOrder.includes(localPlayerId);
 
   const handleNameSubmit = () => {
     if (name.trim()) onUpdateName(name.trim());
@@ -116,8 +117,8 @@ export const Lobby = ({ roomId, players, playerOrder, localPlayerId, onStartGame
             </div>
           </div>
 
-          {/* ゲーム開始ボタン（ホストのみ） */}
-          {isHost ? (
+          {/* ゲーム開始ボタン */}
+          {canStart ? (
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -125,7 +126,7 @@ export const Lobby = ({ roomId, players, playerOrder, localPlayerId, onStartGame
               disabled={playerOrder.length < 1}
               className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
             >
-              🎮 ゲームスタート！
+              {isHost ? '🎮 ゲームスタート！' : '🎮 このメンバーで開始する'}
             </motion.button>
           ) : (
             <div className="w-full py-3 bg-slate-100 text-slate-500 rounded-2xl font-medium text-center">

@@ -37,7 +37,7 @@ export const NodeConfigPanel = () => {
     <div className="absolute right-4 top-4 bottom-4 w-80 z-10">
       <GlassCard className="h-full flex flex-col p-4 md:p-6 overflow-y-auto shadow-2xl">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold">マスの設定</h2>
+          <h2 className="text-xl font-bold">{data.nodeType === 'area' ? 'エリアの設定' : 'マスの設定'}</h2>
         </div>
 
         <div className="space-y-5">
@@ -64,8 +64,47 @@ export const NodeConfigPanel = () => {
             />
           </div>
 
+          {data.nodeType === 'area' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">エリアカラー</label>
+                <input
+                  type="color"
+                  value={data.areaColor || '#38bdf8'}
+                  onChange={(e) => updateNodeData(id, { areaColor: e.target.value })}
+                  className="w-12 h-10 rounded-lg border border-slate-200 cursor-pointer"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">幅</label>
+                  <input
+                    type="number"
+                    min={160}
+                    className="w-full p-2 rounded-lg border border-slate-200 bg-white/50 focus:ring-2 focus:ring-purple-400 outline-none transition-all"
+                    value={data.areaWidth || 560}
+                    onChange={(e) => updateNodeData(id, { areaWidth: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">高さ</label>
+                  <input
+                    type="number"
+                    min={120}
+                    className="w-full p-2 rounded-lg border border-slate-200 bg-white/50 focus:ring-2 focus:ring-purple-400 outline-none transition-all"
+                    value={data.areaHeight || 280}
+                    onChange={(e) => updateNodeData(id, { areaHeight: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+              <p className="text-xs leading-relaxed text-slate-500 bg-sky-50 p-3 rounded-xl">
+                エリアは盤面を視覚的に区切る背景です。移動ルートには使われません。
+              </p>
+            </>
+          )}
+
           {/* サイズ & ストップ */}
-          <div className="grid grid-cols-2 gap-4">
+          {data.nodeType !== 'area' && <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">サイズ</label>
               <select 
@@ -89,10 +128,10 @@ export const NodeConfigPanel = () => {
                 <span className="text-sm font-medium text-slate-700">必ず止まる</span>
               </label>
             </div>
-          </div>
+          </div>}
 
           {/* カスタムカラー */}
-          <div>
+          {data.nodeType !== 'area' && <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">カスタムカラー</label>
             <div className="flex items-center gap-2">
               <input
@@ -110,10 +149,10 @@ export const NodeConfigPanel = () => {
                 </button>
               )}
             </div>
-          </div>
+          </div>}
 
           {/* マス画像 */}
-          <div>
+          {data.nodeType !== 'area' && <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">マス画像</label>
             <input
               type="file"
@@ -132,10 +171,10 @@ export const NodeConfigPanel = () => {
                 </button>
               </div>
             )}
-          </div>
+          </div>}
 
           {/* アクション設定 - 12種対応 */}
-          <ActionEditor nodeId={id} actions={data.actions || []} />
+          {data.nodeType !== 'area' && <ActionEditor nodeId={id} actions={data.actions || []} />}
         </div>
       </GlassCard>
     </div>

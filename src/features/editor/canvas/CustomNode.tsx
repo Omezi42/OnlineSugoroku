@@ -10,6 +10,7 @@ const typeColors: Record<string, string> = {
   minus: 'bg-gradient-to-br from-red-400 to-red-600',
   stop: 'bg-gradient-to-br from-orange-400 to-orange-600',
   normal: 'bg-gradient-to-br from-slate-400 to-slate-600',
+  area: 'bg-sky-300/20',
 };
 
 const typeLabels: Record<string, string> = {
@@ -19,6 +20,7 @@ const typeLabels: Record<string, string> = {
   minus: 'マイナス',
   stop: 'ストップ',
   normal: '通常',
+  area: 'エリア',
 };
 
 const sizeClasses: Record<string, string> = {
@@ -32,6 +34,30 @@ const handleClass = 'w-5 h-5 !bg-purple-500 border-2 !border-white hover:!bg-pin
 
 export const CustomNode = ({ data, selected }: { data: NodeData, selected?: boolean }) => {
   const players = data.playersOnNode || [];
+
+  if (data.nodeType === 'area') {
+    return (
+      <div
+        className={cn(
+          'relative rounded-3xl border-2 border-dashed shadow-inner backdrop-blur-[2px]',
+          selected ? 'border-purple-400 ring-4 ring-purple-200' : 'border-white/70'
+        )}
+        style={{
+          width: data.areaWidth || 560,
+          height: data.areaHeight || 280,
+          background: `${data.areaColor || '#38bdf8'}22`,
+          boxShadow: `inset 0 0 0 1px ${data.areaColor || '#38bdf8'}44`,
+        }}
+      >
+        <div
+          className="absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-bold text-white shadow-md"
+          style={{ background: data.areaColor || '#38bdf8' }}
+        >
+          {data.label}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -30,6 +30,22 @@ function getDiceLabel(diceType: DiceType): string {
   }
 }
 
+function playTone(frequency: number, duration: number, volume = 0.08) {
+  const AudioContextClass = window.AudioContext || (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) return;
+  const context = new AudioContextClass();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = 'triangle';
+  oscillator.frequency.value = frequency;
+  gain.gain.value = volume;
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start();
+  gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
+  oscillator.stop(context.currentTime + duration);
+}
+
 export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) => {
   const [result, setResult] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
@@ -40,6 +56,7 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
     
     setIsRolling(true);
     setResult(null);
+    playTone(220, 0.12, 0.05);
 
     // 物理演算風のバウンドと回転アニメーション
     await controls.start({
@@ -56,6 +73,7 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
     const rollResult = rollSingleDice(diceType);
     setResult(rollResult);
     setIsRolling(false);
+    playTone(520 + rollResult * 28, 0.18, 0.07);
     
     // 少し待ってから結果を通知
     setTimeout(() => {

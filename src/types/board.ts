@@ -1,5 +1,5 @@
 // マスの種類
-export type NodeType = 'start' | 'goal' | 'plus' | 'minus' | 'stop' | 'normal';
+export type NodeType = 'start' | 'goal' | 'plus' | 'minus' | 'stop' | 'normal' | 'area';
 
 // マスのサイズ
 export type NodeSize = 'small' | 'medium' | 'large';
@@ -78,12 +78,15 @@ export interface ConditionBranchAction extends BaseAction {
   paramId: string;
   operator: Operator;
   value: number;
-  // true/false それぞれの進む先は、エッジ（パス）の属性として持たせるのがReact Flowでは一般的
+  trueEdgeId?: string;
+  falseEdgeId?: string;
 }
 
 export interface RandomBranchAction extends BaseAction {
   type: 'randomBranch';
   probability: number; // 0-100
+  successEdgeId?: string;
+  failureEdgeId?: string;
 }
 
 export interface StealAction extends BaseAction {
@@ -152,6 +155,9 @@ export interface NodeData extends Record<string, unknown> {
   size: NodeSize;
   isStop: boolean; // 必ず止まるマスかどうか
   actions: Action[];
+  areaColor?: string;
+  areaWidth?: number;
+  areaHeight?: number;
   // --- 動的データ (プレイ時のみ) ---
   playersOnNode?: { id: string; name: string; icon: string; isMe?: boolean }[];
 }

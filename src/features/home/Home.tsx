@@ -1,15 +1,34 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Play, PenTool, Sparkles, Users, X, ArrowRight } from 'lucide-react';
+import { Play, PenTool, Sparkles, Users, X, ArrowRight, GalleryHorizontalEnd, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { GlassCard } from '../../components/ui/GlassCard';
+import { listBoards } from '../../services/boardService';
+import type { BoardData } from '../../services/boardService';
 
 export default function Home() {
   const navigate = useNavigate();
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [roomIdInput, setRoomIdInput] = useState('');
+  const [boards, setBoards] = useState<BoardData[]>([]);
+  const [isGalleryLoading, setIsGalleryLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    listBoards(6)
+      .then((items) => {
+        if (mounted) setBoards(items);
+      })
+      .catch(() => {
+        if (mounted) setBoards([]);
+      })
+      .finally(() => {
+        if (mounted) setIsGalleryLoading(false);
+      });
+    return () => { mounted = false; };
+  }, []);
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -30,8 +49,15 @@ export default function Home() {
 
   const handleJoin = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (roomIdInput.trim()) {
-      navigate(`/play/${roomIdInput.trim()}`);
+    const value = roomIdInput.trim();
+    if (value) {
+      try {
+        const url = new URL(value);
+        const path = url.pathname.replace(import.meta.env.BASE_URL, '/');
+        navigate(path.startsWith('/play/') ? path : `/play/${value}`);
+      } catch {
+        navigate(`/play/${value}`);
+      }
     }
   };
 
@@ -70,7 +96,7 @@ export default function Home() {
           URLを共有するだけで、いつでもどこでもオンラインで同期プレイが可能です。
         </motion.p>
 
-        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-24">
+        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-20">
           <Button 
             size="lg" 
             icon={<PenTool className="w-5 h-5" />}
@@ -88,6 +114,52 @@ export default function Home() {
           >
             ルームに参加する
           </Button>
+        </motion.div>
+
+        <motion.div variants={itemVariants} className="mb-16 text-left">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                <GalleryHorizontalEnd className="w-6 h-6 text-pink-500" />
+                みんなの盤面
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">保存された盤面からすぐに遊べます。</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {isGalleryLoading && (
+              <GlassCard className="md:col-span-3 p-5 flex items-center justify-center gap-2 text-slate-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                盤面を読み込み中...
+              </GlassCard>
+            )}
+            {!isGalleryLoading && boards.length === 0 && (
+              <GlassCard className="md:col-span-3 p-5 text-center text-sm text-slate-500">
+                まだ公開できる盤面がありません。最初の盤面を作って保存してみましょう。
+              </GlassCard>
+            )}
+            {!isGalleryLoading && boards.map((board, index) => (
+              <GlassCard key={board.id || `${board.name}-${index}`} hoverEffect className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-slate-800 truncate">{board.name || '名称未設定のすごろく'}</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {board.nodes.filter((node) => node.data.nodeType !== 'area').length}マス / {board.edges.length}ルート
+                    </p>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white flex items-center justify-center shadow-md">
+                    <Play className="w-5 h-5" />
+                  </div>
+                </div>
+                <button
+                  onClick={() => board.id && navigate(`/play/${board.id}/room-${Date.now().toString(36)}`)}
+                  className="mt-4 w-full py-2 rounded-xl bg-white/70 text-sm font-bold text-purple-700 hover:bg-purple-50 transition-colors"
+                >
+                  この盤面で遊ぶ
+                </button>
+              </GlassCard>
+            ))}
+          </div>
         </motion.div>
 
         {/* Feature Cards */}
