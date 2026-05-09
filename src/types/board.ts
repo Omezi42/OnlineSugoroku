@@ -134,6 +134,7 @@ export interface BoardSettings {
   };
   goalRewards: Record<number, Record<string, number>>; // { 1(位): { "money": 1000 } }
   background: 'dot' | 'grid' | 'none';
+  bgmType?: string;
   areas: AreaDef[];
 }
 

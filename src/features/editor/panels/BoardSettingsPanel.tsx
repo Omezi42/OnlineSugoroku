@@ -158,6 +158,22 @@ export const BoardSettingsPanel = () => {
               ))}
             </div>
           </div>
+
+          {/* === BGM設定 === */}
+          <div>
+            <h3 className="text-sm font-bold text-slate-800 mb-2">🎵 BGM設定</h3>
+            <select
+              className="w-full p-2 rounded-lg border border-slate-200 bg-white/50"
+              value={boardSettings.bgmType || 'none'}
+              onChange={(e) => updateBoardSettings({ bgmType: e.target.value })}
+            >
+              <option value="none">なし</option>
+              <option value="chill">チル（ゆったり）</option>
+              <option value="ambient">アンビエント（穏やか）</option>
+              <option value="lofi">Lo-fi（作業用）</option>
+              <option value="cafe">カフェ（リラックス）</option>
+            </select>
+          </div>
         </div>
 
         <button

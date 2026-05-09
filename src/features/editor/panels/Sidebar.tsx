@@ -2,9 +2,9 @@ import type { NodeType } from '../../../types/board';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { BoardSettingsPanel } from './BoardSettingsPanel';
 import { useEditorStore } from '../store';
-import { Layers } from 'lucide-react';
+import { Layers, X } from 'lucide-react';
 
-export const Sidebar = () => {
+export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
   const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
@@ -20,9 +20,17 @@ export const Sidebar = () => {
   ];
 
   return (
-    <GlassCard id="node-palette" className="w-64 h-full flex flex-col gap-4 rounded-none border-r border-t-0 border-b-0 border-l-0 shadow-xl overflow-y-auto z-10">
-      <div>
-        <h2 className="text-lg font-bold mb-2">🧩 マスを追加</h2>
+    <GlassCard id="node-palette" className="w-72 md:w-64 h-full flex flex-col gap-4 rounded-none border-r border-t-0 border-b-0 border-l-0 shadow-xl overflow-y-auto z-10">
+      <div className="p-4">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-lg font-bold">🧩 マスを追加</h2>
+          <button 
+            onClick={onClose}
+            className="md:hidden p-2 hover:bg-slate-100 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
         <p className="text-xs text-slate-500 mb-4">
           下のマスをキャンバスにドラッグ＆ドロップしてください。
         </p>

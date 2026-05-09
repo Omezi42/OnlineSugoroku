@@ -123,148 +123,99 @@ export const EditorToolbar = () => {
   return (
     <>
       {/* ツールバーボタン群 */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-[90vw]">
-        <div className="glass-panel px-3 py-2 rounded-2xl shadow-xl flex items-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
-          <button
-            onClick={undo}
-            disabled={past.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors disabled:opacity-40"
-            title="元に戻す"
-          >
-            <Undo2 className="w-3.5 h-3.5" />
-            戻す
-          </button>
-          <button
-            onClick={redo}
-            disabled={future.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors disabled:opacity-40"
-            title="やり直す"
-          >
-            <Redo2 className="w-3.5 h-3.5" />
-            やり直し
-          </button>
+      <div className="fixed bottom-4 left-0 right-0 z-20 pointer-events-none flex justify-center">
+        <div className="glass-panel px-2 py-2 rounded-2xl shadow-xl flex items-center gap-1.5 overflow-x-auto max-w-[95vw] pointer-events-auto scrollbar-hide">
+          <div className="flex items-center gap-1.5 px-1 border-r border-slate-200 mr-1">
+            <button
+              onClick={undo}
+              disabled={past.length === 0}
+              className="p-2 rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors disabled:opacity-40"
+              title="元に戻す"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={redo}
+              disabled={future.length === 0}
+              className="p-2 rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors disabled:opacity-40"
+              title="やり直す"
+            >
+              <Redo2 className="w-4 h-4" />
+            </button>
+          </div>
+          
           <button
             onClick={() => setSnapToGrid(!snapToGrid)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-colors ${
               snapToGrid ? 'bg-emerald-100 text-emerald-700' : 'bg-white/70 hover:bg-white text-slate-700'
             }`}
-            title="マスをグリッド（方眼）に自動で合わせます"
           >
-            <Magnet className="w-3.5 h-3.5" />
-            グリッドに沿う
+            <Magnet className="w-4 h-4" />
+            <span className="hidden sm:inline">グリッド</span>
           </button>
-          <select
-            value={gridSize}
-            onChange={(event) => setGridSize(Number(event.target.value))}
-            className="rounded-xl bg-white/70 px-2 py-1.5 text-xs font-bold text-slate-700 outline-none"
-            title="グリッド幅"
-          >
-            {[16, 24, 32, 48].map((size) => <option key={size} value={size}>{size}px</option>)}
-          </select>
-          <button
-            onClick={snapSelectedToGrid}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-            title="選択中のマスを一番近いグリッドへ揃えます"
-          >
-            近くの線に揃える
-          </button>
-          <div className="w-px h-6 bg-slate-300" />
-          <button
-            onClick={copySelected}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-            title="選択中のマスをコピー"
-          >
-            <Copy className="w-3.5 h-3.5" />
-            コピー
-          </button>
-          <button
-            onClick={pasteClipboard}
-            disabled={!clipboard}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors disabled:opacity-40"
-            title="コピーしたマスを貼り付け"
-          >
-            <ClipboardPaste className="w-3.5 h-3.5" />
-            貼付
-          </button>
-          <div className="w-px h-6 bg-slate-300" />
+
           <button
             onClick={() => setShowLayouts(!showLayouts)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-colors ${
               showLayouts ? 'bg-blue-100 text-blue-700' : 'bg-white/70 hover:bg-white text-slate-700'
             }`}
-            title="マスを自動整列"
           >
-            <Rows3 className="w-3.5 h-3.5" />
-            整列
+            <Rows3 className="w-4 h-4" />
+            <span className="hidden sm:inline">整列</span>
           </button>
+
           <button
             onClick={addArea}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-            title="色付きのエリアを追加"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
           >
-            <MapIcon className="w-3.5 h-3.5" />
-            エリア
+            <MapIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">エリア</span>
           </button>
+
           <button
             onClick={() => fitView({ padding: 0.2, duration: 500 })}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-            title="盤面全体を表示"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
           >
-            <Maximize2 className="w-3.5 h-3.5" />
-            全体表示
+            <Maximize2 className="w-4 h-4" />
+            <span className="hidden sm:inline">全体表示</span>
           </button>
-          <div className="w-px h-6 bg-slate-300" />
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-            title="盤面をJSONファイルで保存"
-          >
-            <Download className="w-3.5 h-3.5" />
-            エクスポート
-          </button>
-          <button
-            onClick={handleImport}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-            title="JSONファイルから盤面を読み込み"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            インポート
-          </button>
-          <div className="w-px h-6 bg-slate-300" />
-          <button
-            onClick={() => {
-              // 親コンポーネントの関数を呼ぶ仕組みが必要ですが、
-              // ここではカスタムイベントまたはpropsで渡す必要があります。
-              // 今回は簡単に、Editor.tsx側で共通化するために、
-              // ToolbarにはUIだけ置いて、実際の処理はEditor.tsxで行うか、
-              // state管理経由で行います。
-              window.dispatchEvent(new CustomEvent('create-revision'));
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-            title="現在の状態を履歴に保存"
-          >
-            <History className="w-3.5 h-3.5" />
-            リビジョン保存
-          </button>
-          <div className="w-px h-6 bg-slate-300" />
+
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+
           <button
             onClick={handleValidate}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-            title="盤面の問題をチェック"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
           >
-            <CheckCircle className="w-3.5 h-3.5" />
-            バリデーション
+            <CheckCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">チェック</span>
           </button>
-          <div className="w-px h-6 bg-slate-300" />
+
           <button
             onClick={() => setShowSearch(!showSearch)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-colors ${
               showSearch ? 'bg-purple-100 text-purple-700' : 'bg-white/70 hover:bg-white text-slate-700'
             }`}
-            title="マスを名前で検索"
           >
-            <Search className="w-3.5 h-3.5" />
-            検索
+            <Search className="w-4 h-4" />
+            <span className="hidden sm:inline">検索</span>
+          </button>
+
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+
+          <button
+            onClick={handleExport}
+            className="p-2 rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
+            title="エクスポート"
+          >
+            <Download className="w-4 h-4" />
+          </button>
+          
+          <button
+            onClick={handleImport}
+            className="p-2 rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
+            title="インポート"
+          >
+            <Upload className="w-4 h-4" />
           </button>
         </div>
       </div>

@@ -1,9 +1,10 @@
 import { useEditorStore } from '../store';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import type { NodeSize } from '../../../types/board';
+import { X } from 'lucide-react';
 import { ActionEditor } from './ActionEditor';
 
-export const NodeConfigPanel = () => {
+export const NodeConfigPanel = ({ onClose }: { onClose?: () => void }) => {
   const { nodes, updateNodeData } = useEditorStore();
   
   const selectedNode = nodes.find(n => n.selected);
@@ -34,10 +35,16 @@ export const NodeConfigPanel = () => {
   };
 
   return (
-    <div className="absolute right-4 top-4 bottom-4 w-80 z-10">
-      <GlassCard className="h-full flex flex-col p-4 md:p-6 overflow-y-auto shadow-2xl">
+    <div className="absolute inset-0 md:inset-auto md:right-4 md:top-4 md:bottom-4 md:w-80 z-10">
+      <GlassCard className="h-full flex flex-col p-4 md:p-6 overflow-y-auto shadow-2xl rounded-none md:rounded-2xl">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold">{data.nodeType === 'area' ? 'エリアの設定' : 'マスの設定'}</h2>
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-slate-100 rounded-full transition-colors md:hidden"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="space-y-5">

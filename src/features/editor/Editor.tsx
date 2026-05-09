@@ -9,7 +9,7 @@ import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
 import { canEditBoard, loadBoard, saveBoard, subscribeToBoard, saveRevision } from '../../services/boardService';
 import { GlassCard } from '../../components/ui/GlassCard';
-import { History, Share2, Users, AlertCircle, Check, Copy, Globe2, Loader2, Play, RotateCcw, X, Home } from 'lucide-react';
+import { History, Share2, Users, AlertCircle, Check, Copy, Globe2, Loader2, Play, RotateCcw, X, Home, Menu } from 'lucide-react';
 import { RevisionHistoryPanel } from './panels/RevisionHistoryPanel';
 import { EditorTutorial } from './components/EditorTutorial';
 import { validateBoard } from './utils/boardValidation';
@@ -47,6 +47,7 @@ export default function Editor() {
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'synced'>('idle');
   const [showRevisions, setShowRevisions] = useState(false);
   const [showTutorial, setShowTutorial] = useState(() => !localStorage.getItem('has_seen_editor_tutorial'));
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { addToast } = useToast();
 
   const location = useLocation();
@@ -301,6 +302,8 @@ export default function Editor() {
     navigate(`/play/${savedBoardId}/test-${Date.now().toString(36)}`);
   };
 
+  const selectedNodeId = nodes.find(n => n.selected)?.id;
+
   return (
     <ReactFlowProvider>
       <div id="tutorial-root" className="flex h-screen w-full bg-slate-50 overflow-hidden relative">
@@ -312,143 +315,145 @@ export default function Editor() {
             </div>
           </div>
         )}
-        <Sidebar />
-        <Canvas />
-        <NodeConfigPanel />
-        <EditorToolbar />
+        <button 
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="md:hidden fixed top-4 left-4 z-[40] glass-panel p-3 rounded-xl shadow-lg text-purple-600 active:scale-95 transition-all"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
 
-        {draftAvailable && (
-          <div className="absolute top-20 left-72 z-30 pointer-events-auto">
-            <div className="glass-panel rounded-2xl px-4 py-3 shadow-xl flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-slate-800">前回の下書きがあります</p>
-                <p className="text-xs text-slate-500">未保存の編集内容を復元できます。</p>
-              </div>
-              <button onClick={handleRestoreDraft} className="px-3 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 transition-colors flex items-center gap-1.5">
-                <RotateCcw className="w-3.5 h-3.5" />
-                復元
-              </button>
-              <button onClick={handleDiscardDraft} className="px-3 py-1.5 rounded-xl bg-white/70 text-slate-600 text-xs font-bold hover:bg-white transition-colors">
-                破棄
-              </button>
-            </div>
-          </div>
-        )}
+        <div className={`
+          fixed md:relative inset-y-0 left-0 z-[35] transform transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}>
+          <Sidebar onClose={() => setSidebarOpen(false)} />
+          {sidebarOpen && (
+            <div 
+              className="md:hidden fixed inset-0 bg-black/20 backdrop-blur-[2px] -z-10" 
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+        </div>
 
-        <div className="absolute top-4 left-72 right-4 flex flex-wrap justify-between items-start pointer-events-none gap-3">
-          <div className="flex flex-wrap gap-2 pointer-events-auto">
-            <button
-              onClick={() => navigate('/')}
-              className="glass-panel px-3 py-3 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center h-[52px]"
-              title="ホームに戻る"
-            >
-              <Home className="w-5 h-5" />
-            </button>
-            {currentBoardId && (
-              <button
-                onClick={() => setShowRevisions(true)}
-                className="glass-panel px-3 py-3 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center h-[52px]"
-                title="バージョン履歴"
+        <div className="flex-1 relative overflow-hidden">
+          <Canvas />
+          
+          <AnimatePresence>
+            {selectedNodeId && (
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                className="fixed md:absolute right-0 top-0 bottom-0 z-[35] w-full md:w-80"
               >
-                <History className="w-5 h-5" />
-              </button>
+                <NodeConfigPanel onClose={() => useEditorStore.getState().setNodes(nodes.map(n => ({...n, selected: false})))} />
+              </motion.div>
             )}
-            <div id="board-settings" className="glass-panel px-4 py-3 rounded-xl shadow-sm flex flex-col gap-2 min-w-[280px]">
-              <input
-                type="text"
-                value={boardName}
-                onChange={(event) => setBoardName(event.target.value)}
-                className="font-bold text-slate-800 bg-transparent outline-none w-full"
-                placeholder="盤面の名前"
-              />
-              <div className="flex flex-wrap gap-2">
-                <input
-                  type="text"
-                  value={boardDescription}
-                  onChange={(event) => setBoardDescription(event.target.value)}
-                  className="text-xs text-slate-500 bg-transparent outline-none flex-1 min-w-[120px]"
-                  placeholder="説明を追加"
-                  maxLength={80}
-                />
-                <input
-                  type="text"
-                  value={authorName}
-                  onChange={(event) => setAuthorName(event.target.value)}
-                  className="text-xs text-slate-500 bg-transparent outline-none w-24"
-                  placeholder="作者名"
-                  maxLength={24}
-                />
-                <select
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value)}
-                  className="text-xs text-slate-600 bg-white/60 rounded-lg px-2 py-0.5 outline-none"
+          </AnimatePresence>
+
+          <div className={`
+            absolute top-4 left-4 md:left-4 right-4 flex flex-wrap justify-between items-start pointer-events-none gap-3
+            ${sidebarOpen ? 'md:ml-0' : ''}
+          `}>
+            <div className="flex flex-wrap gap-2 pointer-events-auto">
+              <button
+                onClick={() => navigate('/')}
+                className="glass-panel px-3 py-3 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center h-[52px]"
+                title="ホームに戻る"
+              >
+                <Home className="w-5 h-5" />
+              </button>
+              {currentBoardId && (
+                <button
+                  onClick={() => setShowRevisions(true)}
+                  className="glass-panel px-3 py-3 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center h-[52px]"
+                  title="バージョン履歴"
                 >
-                  {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                </select>
-              </div>
-              {!canEdit && <p className="text-xs font-bold text-amber-600">編集権限がないため、保存時にコピーを作成します。</p>}
-              
-              <div className="flex items-center gap-2 mt-2">
-                <AnimatePresence mode="wait">
-                  {syncStatus === 'saving' && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 text-xs text-slate-500 bg-white/50 px-2 py-1 rounded-md">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      同期中...
-                    </motion.div>
-                  )}
-                  {syncStatus === 'synced' && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-md">
-                      <Check className="w-3 h-3" />
-                      クラウドと同期完了
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                  <History className="w-5 h-5" />
+                </button>
+              )}
+              <div id="board-settings" className="glass-panel px-4 py-3 rounded-xl shadow-sm flex flex-col gap-2 min-w-[200px] md:min-w-[280px] max-w-[calc(100vw-120px)]">
+                <input
+                  type="text"
+                  value={boardName}
+                  onChange={(event) => setBoardName(event.target.value)}
+                  className="font-bold text-slate-800 bg-transparent outline-none w-full text-sm md:text-base"
+                  placeholder="盤面の名前"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    type="text"
+                    value={boardDescription}
+                    onChange={(event) => setBoardDescription(event.target.value)}
+                    className="text-[10px] md:text-xs text-slate-500 bg-transparent outline-none flex-1 min-w-[100px]"
+                    placeholder="説明を追加"
+                    maxLength={80}
+                  />
+                  <select
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value)}
+                    className="text-[10px] md:text-xs text-slate-600 bg-white/60 rounded-lg px-2 py-0.5 outline-none"
+                  >
+                    {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </div>
+                {!canEdit && <p className="text-[10px] font-bold text-amber-600">コピーとして保存されます</p>}
+                
+                <div className="flex items-center gap-2 mt-1">
+                  <AnimatePresence mode="wait">
+                    {syncStatus === 'saving' && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 text-[10px] text-slate-500 bg-white/50 px-2 py-0.5 rounded-md">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        同期中...
+                      </motion.div>
+                    )}
+                    {syncStatus === 'synced' && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-md">
+                        <Check className="w-3 h-3" />
+                        同期完了
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="pointer-events-auto flex items-center gap-3">
-            <label className="glass-panel px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={(event) => setIsPublic(event.target.checked)}
-                className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500"
-              />
-              <Globe2 className="w-4 h-4 text-purple-500" />
-              公開ギャラリーに表示
-            </label>
-            <label className="glass-panel px-3 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allowPublicEdit}
-                onChange={(event) => setAllowPublicEdit(event.target.checked)}
-                className="w-4 h-4 text-pink-600 rounded border-slate-300 focus:ring-pink-500"
-              />
-              <Users className="w-4 h-4 text-pink-500" />
-              URLを知っている人に共同編集を許可
-            </label>
-            <button
-              id="share-button"
-              onClick={() => {
-                const url = window.location.href;
-                navigator.clipboard.writeText(url);
-                addToast('共同編集用URLをコピーしました', 'success');
-              }}
-              className="glass-panel p-2.5 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 transition-colors flex items-center justify-center"
-              title="共同編集用URLをコピー"
-            >
-              <Share2 className="w-5 h-5" />
-            </button>
-            <button
-              id="test-play-button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 disabled:opacity-70"
-            >
-              {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-              {isSaving ? '保存中...' : '保存してプレイ'}
-            </button>
+            
+            <div className="pointer-events-auto flex items-center gap-2 md:gap-3">
+              <button
+                id="test-play-button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 md:px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 disabled:opacity-70 text-xs md:text-sm"
+              >
+                {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isSaving ? '保存中...' : '保存してプレイ'}
+              </button>
+              
+              <div className="hidden md:flex items-center gap-2">
+                <label className="glass-panel px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(event) => setIsPublic(event.target.checked)}
+                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500"
+                  />
+                  <Globe2 className="w-4 h-4 text-purple-500" />
+                  公開
+                </label>
+                <button
+                  id="share-button"
+                  onClick={() => {
+                    const url = window.location.href;
+                    navigator.clipboard.writeText(url);
+                    addToast('編集用URLをコピーしました', 'success');
+                  }}
+                  className="glass-panel p-2.5 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 transition-colors flex items-center justify-center"
+                  title="URLをコピー"
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -45,14 +45,14 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showPlayerPanel, setShowPlayerPanel] = useState(true);
-  const [showLogPanel, setShowLogPanel] = useState(true);
+  const [showLogPanel, setShowLogPanel] = useState(() => window.innerWidth > 640);
   const [selectedNodeData, setSelectedNodeData] = useState<NodeData | null>(null);
   const [animatingPlayer, setAnimatingPlayer] = useState<{ id: string; position: string } | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const previousLogCount = useRef<number>(0);
   const { addToast } = useToast();
-  const { settings: soundSettings, setSettings: setSoundSettings, playSe } = useSoundSettings();
+  const { settings: soundSettings, setSettings: setSoundSettings, playSe, playBgm, stopBgm } = useSoundSettings();
   const navigate = useNavigate();
 
   // 初回参加処理
@@ -66,6 +66,11 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       }
       setBoardData(board);
       markBoardPlayed(boardId).catch(() => undefined);
+
+      // BGMの再生開始
+      if (board.settings.bgmType && board.settings.bgmType !== 'none') {
+        playBgm(board.settings.bgmType as any);
+      }
 
       // sessionStorageでプレイヤーIDを保持（リロード対策）
       let pId = sessionStorage.getItem(`player-${roomId}`);
@@ -115,7 +120,10 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       }
     };
     init();
-    return () => { cancelled = true; };
+    return () => { 
+      cancelled = true; 
+      stopBgm();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId, roomId]);
 
@@ -656,6 +664,10 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
           elementsSelectable={true}
           onNodeClick={handleNodeClick}
           fitView
+          zoomOnPinch={true}
+          panOnScroll={false}
+          maxZoom={1.5}
+          minZoom={0.2}
         >
           <Background gap={16} size={1} color="#e2e8f0" />
         </ReactFlow>
