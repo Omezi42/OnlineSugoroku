@@ -3,7 +3,7 @@ import { useReactFlow } from '@xyflow/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEditorStore } from '../store';
 import {
-  Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2,
+  Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2, History,
   Copy, ClipboardPaste, Rows3, Workflow, CircleDot, Map as MapIcon, Maximize2, Magnet,
 } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
@@ -222,13 +222,24 @@ export const EditorToolbar = () => {
             <Download className="w-3.5 h-3.5" />
             エクスポート
           </button>
-          <button
-            onClick={handleImport}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-            title="JSONファイルから盤面を読み込み"
-          >
             <Upload className="w-3.5 h-3.5" />
             インポート
+          </button>
+          <div className="w-px h-6 bg-slate-300" />
+          <button
+            onClick={() => {
+              // 親コンポーネントの関数を呼ぶ仕組みが必要ですが、
+              // ここではカスタムイベントまたはpropsで渡す必要があります。
+              // 今回は簡単に、Editor.tsx側で共通化するために、
+              // ToolbarにはUIだけ置いて、実際の処理はEditor.tsxで行うか、
+              // state管理経由で行います。
+              window.dispatchEvent(new CustomEvent('create-revision'));
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
+            title="現在の状態を履歴に保存"
+          >
+            <History className="w-3.5 h-3.5" />
+            リビジョン保存
           </button>
           <div className="w-px h-6 bg-slate-300" />
           <button

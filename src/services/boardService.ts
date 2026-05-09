@@ -17,8 +17,20 @@ export interface BoardData {
   edges: Edge[];
   settings: BoardSettings;
   isPublic?: boolean;
+  allowPublicEdit?: boolean; // 共同編集の許可
   createdAt?: unknown;
   updatedAt?: unknown;
+}
+
+export interface BoardRevision {
+  id: string;
+  boardId: string;
+  name: string;
+  nodes: Node<NodeData>[];
+  edges: Edge[];
+  settings: BoardSettings;
+  createdAt: unknown;
+  note?: string;
 }
 
 const BOARDS_COLLECTION = 'boards';
@@ -141,8 +153,41 @@ export const listMyBoards = async (ownerId: string, maxCount = 30): Promise<Boar
 };
 
 export const canEditBoard = (board: BoardData, userId?: string | null, localOwnerId?: string | null) => {
+  // 共同編集が許可されている場合は誰でも編集可能
+  if (board.allowPublicEdit) return true;
+  // 未ログインの新規盤面などは誰でも編集可能（保存時に所有者が決まる）
   if (!board.ownerId) return true;
+  // オーナー一致確認
   return board.ownerId === userId || board.ownerId === localOwnerId;
+};
+
+// リビジョンの保存
+export const saveRevision = async (boardId: string, board: Partial<BoardData>, note?: string): Promise<void> => {
+  const revRef = doc(collection(db, BOARDS_COLLECTION, boardId, 'revisions'));
+  const payload = {
+    id: revRef.id,
+    boardId,
+    name: board.name || '無題のリビジョン',
+    nodes: board.nodes || [],
+    edges: board.edges || [],
+    settings: board.settings || {},
+    createdAt: serverTimestamp(),
+    note: note || '',
+  };
+  await setDoc(revRef, payload);
+};
+
+// リビジョン一覧の取得
+export const getRevisions = async (boardId: string): Promise<BoardRevision[]> => {
+  const q = query(
+    collection(db, BOARDS_COLLECTION, boardId, 'revisions'),
+    where('boardId', '==', boardId), // サブコレクションなので本来不要だが、安全のため
+    limit(20)
+  );
+  const snap = await getDocs(q);
+  const revs = snap.docs.map(d => d.data() as BoardRevision);
+  // クライアントサイドでのソート（serverTimestampが含まれるため）
+  return revs.sort((a, b) => timestampToMillis(b.createdAt) - timestampToMillis(a.createdAt));
 };
 
 export const markBoardPlayed = async (boardId: string) => {

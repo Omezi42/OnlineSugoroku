@@ -114,7 +114,13 @@ export default function Home() {
           <p className="text-xs text-slate-500 mt-1 line-clamp-2 min-h-[2rem]" title={board.description}>{board.description || '説明はまだありません'}</p>
           <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-bold">
             <span className="rounded-full bg-purple-50 px-2 py-1 text-purple-700">{categories.find((item) => item.value === board.category)?.label || '未分類'}</span>
-            <span className="rounded-full bg-pink-50 px-2 py-1 text-pink-700">プレイ {board.playCount || 0}</span>
+            {board.allowPublicEdit && (
+              <span className="rounded-full bg-pink-100 px-2 py-1 text-pink-700 flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                共同編集可
+              </span>
+            )}
+            <span className="rounded-full bg-slate-50 px-2 py-1 text-slate-500">プレイ {board.playCount || 0}</span>
           </div>
         </div>
         <div className="flex flex-col gap-2 items-end">
@@ -137,10 +143,19 @@ export default function Home() {
           <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
           <span>詳細</span>
         </button>
-        <button onClick={() => board.id && navigate(`/editor/${board.id}`)} className="py-2 px-1 rounded-xl bg-white/70 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1 sm:gap-1.5">
-          <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-          <span>編集</span>
         </button>
+        {(board.allowPublicEdit || showDelete) && (
+          <button onClick={() => board.id && navigate(`/editor/${board.id}`)} className="py-2 px-1 rounded-xl bg-pink-50 text-xs sm:text-sm font-bold text-pink-700 hover:bg-pink-100 transition-colors flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm border border-pink-200">
+            <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>{showDelete ? '編集' : '共同編集'}</span>
+          </button>
+        )}
+        {(!board.allowPublicEdit && !showDelete) && (
+          <button onClick={() => board.id && navigate(`/editor/${board.id}`)} className="py-2 px-1 rounded-xl bg-white/70 text-xs sm:text-sm font-bold text-slate-400 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1 sm:gap-1.5 cursor-not-allowed" title="閲覧のみ">
+            <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>閲覧</span>
+          </button>
+        )}
         <button onClick={() => board.id && navigate(`/play/${board.id}/room-${Date.now().toString(36)}`)} className="py-2 px-1 rounded-xl bg-white/70 text-xs sm:text-sm font-bold text-purple-700 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm">
           <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
           <span>遊ぶ</span>

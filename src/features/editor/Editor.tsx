@@ -2,14 +2,15 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertCircle, Check, Copy, Globe2, Loader2, Play, RotateCcw, X, Home } from 'lucide-react';
 import { Canvas } from './canvas/Canvas';
 import { Sidebar } from './panels/Sidebar';
 import { NodeConfigPanel } from './panels/NodeConfigPanel';
 import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
-import { canEditBoard, loadBoard, saveBoard, subscribeToBoard } from '../../services/boardService';
+import { canEditBoard, loadBoard, saveBoard, subscribeToBoard, saveRevision } from '../../services/boardService';
 import { GlassCard } from '../../components/ui/GlassCard';
+import { History, Save, Share2, Users, AlertCircle, Check, Copy, Globe2, Loader2, Play, RotateCcw, X, Home } from 'lucide-react';
+import { RevisionHistoryPanel } from './panels/RevisionHistoryPanel';
 import { validateBoard } from './utils/boardValidation';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { getLocalOwnerId } from '../../services/localIdentity';
@@ -37,11 +38,12 @@ export default function Editor() {
   const [authorName, setAuthorName] = useState('');
   const [category, setCategory] = useState('party');
   const [isPublic, setIsPublic] = useState(false);
+  const [allowPublicEdit, setAllowPublicEdit] = useState(false);
   const [canEdit, setCanEdit] = useState(true);
   const [savedBoardId, setSavedBoardId] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [draftAvailable, setDraftAvailable] = useState(() => Boolean(localStorage.getItem(draftKey)));
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'synced'>('idle');
+  const [showRevisions, setShowRevisions] = useState(false);
   const { addToast } = useToast();
 
   const location = useLocation();
@@ -84,6 +86,7 @@ export default function Editor() {
         setAuthorName(board.authorName || '');
         setCategory(board.category || 'party');
         setIsPublic(Boolean(board.isPublic));
+        setAllowPublicEdit(Boolean(board.allowPublicEdit));
         setDraftAvailable(Boolean(localStorage.getItem(draftKey)));
         if (!editable) {
           alert('この盤面は閲覧できます。保存すると、自分用のコピーとして作成します。');
@@ -108,12 +111,13 @@ export default function Editor() {
       authorName,
       category,
       isPublic,
+      allowPublicEdit,
       nodes,
       edges,
       settings: boardSettings,
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
-  }, [authorName, boardDescription, boardName, boardSettings, category, currentBoardId, draftAvailable, draftKey, edges, isLoadingBoard, isPublic, nodes]);
+  }, [authorName, boardDescription, boardName, boardSettings, category, currentBoardId, draftAvailable, draftKey, edges, isLoadingBoard, isPublic, allowPublicEdit, nodes]);
 
   // リモートからの変更を購読（共同編集）
   useEffect(() => {
@@ -133,6 +137,7 @@ export default function Editor() {
       if (data.description !== boardDescription) setBoardDescription(data.description || '');
       if (data.authorName !== authorName) setAuthorName(data.authorName || '');
       if (data.isPublic !== isPublic) setIsPublic(Boolean(data.isPublic));
+      if (data.allowPublicEdit !== allowPublicEdit) setAllowPublicEdit(Boolean(data.allowPublicEdit));
       
       addToast('他のユーザーによる変更を同期しました', 'info');
       setSyncStatus('synced');
@@ -164,6 +169,7 @@ export default function Editor() {
           edges,
           settings: boardSettings,
           isPublic,
+          allowPublicEdit,
         });
         setSyncStatus('synced');
         setTimeout(() => setSyncStatus('idle'), 2000);
@@ -173,7 +179,7 @@ export default function Editor() {
     }, 1500); // 1.5秒間操作がなければ保存
 
     return () => clearTimeout(timeoutId);
-  }, [nodes, edges, boardSettings, boardName, boardDescription, authorName, category, isPublic, currentBoardId, isLoadingBoard, draftAvailable, canEdit]);
+  }, [nodes, edges, boardSettings, boardName, boardDescription, authorName, category, isPublic, allowPublicEdit, currentBoardId, isLoadingBoard, draftAvailable, canEdit]);
 
   const handleRestoreDraft = () => {
     const raw = localStorage.getItem(draftKey);
@@ -194,6 +200,7 @@ export default function Editor() {
       setAuthorName(draft.authorName || '');
       setCategory(draft.category || 'party');
       setIsPublic(Boolean(draft.isPublic));
+      setAllowPublicEdit(Boolean(draft.allowPublicEdit));
       setDraftAvailable(false);
     } catch {
       alert('下書きの復元に失敗しました。');
@@ -232,6 +239,7 @@ export default function Editor() {
         edges,
         settings: boardSettings,
         isPublic,
+        allowPublicEdit,
       });
       setCanEdit(true);
       setCurrentBoardId(boardId);
@@ -247,17 +255,38 @@ export default function Editor() {
     }
   };
 
-  const shareUrl = savedBoardId ? `${window.location.origin}${import.meta.env.BASE_URL}play/${savedBoardId}` : '';
+  useEffect(() => {
+    const handleCreateRevisionEvent = () => handleCreateRevision();
+    window.addEventListener('create-revision', handleCreateRevisionEvent);
+    return () => window.removeEventListener('create-revision', handleCreateRevisionEvent);
+  }, [nodes, edges, boardSettings, boardName, currentBoardId, canEdit]);
+
+  const handleCreateRevision = async () => {
+    if (!currentBoardId || !canEdit) return;
+    const note = window.prompt('リビジョンのメモを入力（例：公開版、バランス調整後）', '');
+    if (note === null) return;
+    
+    try {
+      setIsSaving(true);
+      await saveRevision(currentBoardId, {
+        name: boardName,
+        nodes,
+        edges,
+        settings: boardSettings,
+      }, note);
+      addToast('リビジョンを保存しました', 'success');
+    } catch {
+      addToast('リビジョンの保存に失敗しました', 'danger');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+
 
   const handleTestPlay = () => {
     if (!savedBoardId) return;
     navigate(`/play/${savedBoardId}/test-${Date.now().toString(36)}`);
-  };
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -304,6 +333,15 @@ export default function Editor() {
             >
               <Home className="w-5 h-5" />
             </button>
+            {currentBoardId && (
+              <button
+                onClick={() => setShowRevisions(true)}
+                className="glass-panel px-3 py-3 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center h-[52px]"
+                title="バージョン履歴"
+              >
+                <History className="w-5 h-5" />
+              </button>
+            )}
             <div className="glass-panel px-4 py-3 rounded-xl shadow-sm flex flex-col gap-2 min-w-[280px]">
               <input
                 type="text"
@@ -358,7 +396,7 @@ export default function Editor() {
             </div>
           </div>
           <div className="pointer-events-auto flex items-center gap-3">
-            <label className="glass-panel px-3 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
+            <label className="glass-panel px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
               <input
                 type="checkbox"
                 checked={isPublic}
@@ -368,6 +406,27 @@ export default function Editor() {
               <Globe2 className="w-4 h-4 text-purple-500" />
               公開ギャラリーに表示
             </label>
+            <label className="glass-panel px-3 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allowPublicEdit}
+                onChange={(event) => setAllowPublicEdit(event.target.checked)}
+                className="w-4 h-4 text-pink-600 rounded border-slate-300 focus:ring-pink-500"
+              />
+              <Users className="w-4 h-4 text-pink-500" />
+              URLを知っている人に共同編集を許可
+            </label>
+            <button
+              onClick={() => {
+                const url = window.location.href;
+                navigator.clipboard.writeText(url);
+                addToast('共同編集用URLをコピーしました', 'success');
+              }}
+              className="glass-panel p-2.5 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 transition-colors flex items-center justify-center"
+              title="共同編集用URLをコピー"
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
             <button
               onClick={handleSave}
               disabled={isSaving}
@@ -392,15 +451,27 @@ export default function Editor() {
                   </div>
                   <h2 className="text-2xl font-bold text-slate-800 mb-2">保存完了！</h2>
                   <p className="text-slate-500 mb-6">プレイ用URLを共有して、すぐにテストプレイできます。</p>
-                  <div className={`mb-4 rounded-xl px-3 py-2 text-sm font-bold ${isPublic ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-                    {isPublic ? '公開ギャラリーに表示されます' : '非公開で保存されています'}
+                  <div className="text-left mb-1 mt-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">プレイ用URL (みんなを招待)</label>
+                    <div className="bg-white/50 border border-slate-200 rounded-lg p-2 flex items-center gap-2">
+                      <input type="text" readOnly value={`${window.location.origin}${window.location.pathname}#/play/${savedBoardId}/room-${Date.now().toString(36)}`} className="flex-1 bg-transparent text-sm text-slate-600 outline-none px-2" />
+                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/play/${savedBoardId}/room-${Date.now().toString(36)}`); addToast('プレイURLをコピーしました', 'success'); }} className="p-2 bg-white rounded-md text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors shadow-sm" title="URLをコピー">
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="bg-white/50 border border-slate-200 rounded-lg p-2 flex items-center gap-2 mb-6">
-                    <input type="text" readOnly value={shareUrl} className="flex-1 bg-transparent text-sm text-slate-600 outline-none px-2" />
-                    <button onClick={handleCopy} className="p-2 bg-white rounded-md text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors shadow-sm" title="URLをコピー">
-                      {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
+                  {allowPublicEdit && (
+                    <div className="text-left mb-6">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">共同編集用URL (作者仲間を招待)</label>
+                      <div className="bg-white/50 border border-slate-200 rounded-lg p-2 flex items-center gap-2">
+                        <input type="text" readOnly value={`${window.location.origin}${window.location.pathname}#/editor/${savedBoardId}`} className="flex-1 bg-transparent text-sm text-slate-600 outline-none px-2" />
+                        <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/editor/${savedBoardId}`); addToast('編集用URLをコピーしました', 'success'); }} className="p-2 bg-white rounded-md text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors shadow-sm" title="URLをコピー">
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {!allowPublicEdit && <div className="h-4" />}
                   <div className="flex flex-col gap-3">
                     <button onClick={handleTestPlay} className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all">
                       <Play className="w-5 h-5" />
@@ -413,6 +484,15 @@ export default function Editor() {
                 </GlassCard>
               </motion.div>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showRevisions && currentBoardId && (
+            <RevisionHistoryPanel 
+              boardId={currentBoardId} 
+              onClose={() => setShowRevisions(false)} 
+            />
           )}
         </AnimatePresence>
       </div>
