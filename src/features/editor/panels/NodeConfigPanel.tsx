@@ -1,11 +1,11 @@
 import { useEditorStore } from '../store';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import type { NodeSize } from '../../../types/board';
-import { X } from 'lucide-react';
+import { X, ArrowUp, ArrowDown } from 'lucide-react';
 import { ActionEditor } from './ActionEditor';
 
 export const NodeConfigPanel = ({ onClose }: { onClose?: () => void }) => {
-  const { nodes, updateNodeData } = useEditorStore();
+  const { nodes, updateNodeData, updateNode } = useEditorStore();
   
   const selectedNode = nodes.find(n => n.selected);
   if (!selectedNode) return null;
@@ -81,6 +81,26 @@ export const NodeConfigPanel = ({ onClose }: { onClose?: () => void }) => {
                   onChange={(e) => updateNodeData(id, { areaColor: e.target.value })}
                   className="w-12 h-10 rounded-lg border border-slate-200 cursor-pointer"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">重なり順 (レイヤー)</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => updateNode(id, { zIndex: (selectedNode.zIndex || -10) + 1 })}
+                    className="flex-1 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <ArrowUp className="w-3 h-3" />
+                    前面へ
+                  </button>
+                  <button
+                    onClick={() => updateNode(id, { zIndex: (selectedNode.zIndex || -10) - 1 })}
+                    className="flex-1 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <ArrowDown className="w-3 h-3" />
+                    背面へ
+                  </button>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-400">※ エリアは常に通常のマスの後ろに表示されます。</p>
               </div>
               <p className="text-xs leading-relaxed text-slate-500 bg-sky-50 p-3 rounded-xl">
                 エリアはマウスで直接角をドラッグして大きさを変更できます。

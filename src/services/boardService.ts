@@ -178,6 +178,12 @@ export const saveRevision = async (boardId: string, board: Partial<BoardData>, n
   await setDoc(revRef, payload);
 };
 
+// リビジョンのメモ更新
+export const updateRevisionNote = async (boardId: string, revisionId: string, note: string): Promise<void> => {
+  const revRef = doc(db, BOARDS_COLLECTION, boardId, 'revisions', revisionId);
+  await setDoc(revRef, { note }, { merge: true });
+};
+
 // リビジョン一覧の取得
 export const getRevisions = async (boardId: string): Promise<BoardRevision[]> => {
   const q = query(

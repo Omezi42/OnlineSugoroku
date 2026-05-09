@@ -9,8 +9,9 @@ import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
 import { canEditBoard, loadBoard, saveBoard, subscribeToBoard, saveRevision } from '../../services/boardService';
 import { GlassCard } from '../../components/ui/GlassCard';
-import { History, Share2, Check, Copy, Globe2, Loader2, Play, X, Home, Menu } from 'lucide-react';
+import { History, Share2, Check, Copy, Globe2, Loader2, Play, X, Home, Menu, Settings } from 'lucide-react';
 import { RevisionHistoryPanel } from './panels/RevisionHistoryPanel';
+import { BoardSettingsPanel } from './panels/BoardSettingsPanel';
 import { EditorTutorial } from './components/EditorTutorial';
 import { validateBoard } from './utils/boardValidation';
 import { useAuthUser } from '../../hooks/useAuthUser';
@@ -46,6 +47,8 @@ export default function Editor() {
   const [draftAvailable, setDraftAvailable] = useState(() => Boolean(localStorage.getItem(draftKey)));
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'synced'>('idle');
   const [showRevisions, setShowRevisions] = useState(false);
+  const [showBoardSettings, setShowBoardSettings] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [showTutorial, setShowTutorial] = useState(() => !localStorage.getItem('has_seen_editor_tutorial'));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { addToast } = useToast();
@@ -231,24 +234,11 @@ export default function Editor() {
     setDraftAvailable(false);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (createRevision = false) => {
     const validation = validateBoard(nodes, edges);
     if (!validation.ok) {
-      alert(`保存前チェックでエラーが見つかりました。\n\n${validation.errors.join('\n')}`);
+      addToast(`エラー: ${validation.errors[0]}`, 'danger');
       return;
-    }
-    if (validation.warnings.length > 0) {
-      const shouldContinue = window.confirm(`警告がありますが保存しますか？\n\n${validation.warnings.slice(0, 6).join('\n')}`);
-      if (!shouldContinue) return;
-    }
-
-    // NGワードチェック (公開する場合のみ)
-    if (isPublic) {
-      const filterResult = checkBoardContent({ name: boardName, description: boardDescription, nodes });
-      if (filterResult.hasNgWord) {
-        alert(`不適切な可能性のある表現が含まれているため、公開できません。\n\n検出されたワード: ${filterResult.detectedWords.join(', ')}\n\n修正して再度保存してください。`);
-        return;
-      }
     }
 
     try {
@@ -269,15 +259,29 @@ export default function Editor() {
         isPublic,
         allowPublicEdit,
       });
+      
       setCanEdit(true);
       setCurrentBoardId(boardId);
-      setSavedBoardId(boardId);
       localStorage.removeItem(draftKey);
       setDraftAvailable(false);
-      addToast('盤面を保存しました', 'success');
+      
+      if (createRevision) {
+        await saveRevision(boardId, {
+          name: boardName,
+          nodes,
+          edges,
+          settings: boardSettings,
+        }, ''); // No note by default as per request
+        addToast('保存して履歴を作成しました', 'success');
+      } else {
+        addToast('盤面を保存しました', 'success');
+      }
+      
+      return boardId;
     } catch (error) {
       console.error('Failed to save board:', error);
       addToast('保存に失敗しました。', 'danger');
+      return null;
     } finally {
       setIsSaving(false);
     }
@@ -312,9 +316,13 @@ export default function Editor() {
 
 
 
-  const handleTestPlay = () => {
-    if (!savedBoardId) return;
-    navigate(`/play/${savedBoardId}/test-${Date.now().toString(36)}`);
+  const handlePlayClick = async () => {
+    if (currentBoardId) {
+      navigate(`/play/${currentBoardId}/room-${Date.now().toString(36)}`);
+    } else {
+      const id = await handleSave();
+      if (id) navigate(`/play/${id}/room-${Date.now().toString(36)}`);
+    }
   };
 
   const selectedNodeId = nodes.find(n => n.selected)?.id;
@@ -442,43 +450,133 @@ export default function Editor() {
             </div>
             
             <div className="pointer-events-auto flex items-center gap-2 md:gap-3">
+              {/* 設定ボタン */}
+              <button
+                onClick={() => setShowBoardSettings(true)}
+                className="glass-panel p-3 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 transition-colors flex items-center justify-center h-[52px]"
+                title="ボード設定"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+
+              {/* 共有ボタン */}
+              <button
+                onClick={() => setShowShareModal(true)}
+                className={`glass-panel p-3 rounded-xl shadow-sm transition-colors flex items-center justify-center h-[52px] ${
+                  allowPublicEdit ? 'text-green-600 hover:bg-green-50' : 'text-slate-600 hover:text-purple-600'
+                }`}
+                title="共有・共同編集設定"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
+
+              {/* 保存ボタン */}
+              <button
+                onClick={() => handleSave(true)}
+                disabled={isSaving}
+                className="glass-panel px-4 md:px-6 py-2 rounded-xl font-bold shadow-sm hover:bg-slate-50 transition-all transform active:scale-95 disabled:opacity-70 text-xs md:text-sm h-[52px] border border-slate-200"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
+                ) : (
+                  <span className="text-slate-700">
+                    {currentBoardId ? '上書き保存' : '保存'}
+                  </span>
+                )}
+              </button>
+
+              {/* プレイボタン */}
               <button
                 id="test-play-button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 md:px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 disabled:opacity-70 text-xs md:text-sm"
+                onClick={handlePlayClick}
+                className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 md:px-8 py-2 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 active:scale-95 text-xs md:text-sm h-[52px]"
               >
-                {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {isSaving ? '保存中...' : '保存してプレイ'}
+                <Play className="w-5 h-5 fill-current" />
+                プレイ
               </button>
-              
-              <div className="hidden md:flex items-center gap-2">
-                <label className="glass-panel px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isPublic}
-                    onChange={(event) => setIsPublic(event.target.checked)}
-                    className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500"
-                  />
-                  <Globe2 className="w-4 h-4 text-purple-500" />
-                  公開
-                </label>
-                <button
-                  id="share-button"
-                  onClick={() => {
-                    const url = window.location.href;
-                    navigator.clipboard.writeText(url);
-                    addToast('編集用URLをコピーしました', 'success');
-                  }}
-                  className="glass-panel p-2.5 rounded-xl shadow-sm text-slate-600 hover:text-purple-600 transition-colors flex items-center justify-center"
-                  title="URLをコピー"
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-              </div>
             </div>
           </div>
         </div>
+
+        <AnimatePresence>
+          {showShareModal && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={() => setShowShareModal(false)}>
+              <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="w-full max-w-md p-4" onClick={e => e.stopPropagation()}>
+                <GlassCard className="p-8 relative">
+                  <button onClick={() => setShowShareModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                    <X className="w-5 h-5" />
+                  </button>
+                  
+                  <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <Share2 className="w-6 h-6 text-purple-500" />
+                    共有・共同編集
+                  </h2>
+
+                  <div className="space-y-6 text-left">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div>
+                        <span className="block text-sm font-bold text-slate-700">共同編集を許可</span>
+                        <span className="text-[10px] text-slate-500">URLを知っている人がリアルタイムで編集できます</span>
+                      </div>
+                      <button
+                        className={`relative w-12 h-6 rounded-full transition-colors ${allowPublicEdit ? 'bg-green-500' : 'bg-slate-300'}`}
+                        onClick={() => setAllowPublicEdit(!allowPublicEdit)}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${allowPublicEdit ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div>
+                        <span className="block text-sm font-bold text-slate-700">盤面を公開する</span>
+                        <span className="text-[10px] text-slate-500">ホーム画面の「みんなのすごろく」に表示されます</span>
+                      </div>
+                      <button
+                        className={`relative w-12 h-6 rounded-full transition-colors ${isPublic ? 'bg-purple-500' : 'bg-slate-300'}`}
+                        onClick={() => setIsPublic(!isPublic)}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${isPublic ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">🎮 プレイ用URL (みんなを招待)</label>
+                        <div className="bg-white border border-slate-200 rounded-xl p-2 flex items-center gap-2">
+                          <input type="text" readOnly value={`${window.location.origin}${window.location.pathname}#/play/${currentBoardId || ''}/room-${Date.now().toString(36)}`} className="flex-1 bg-transparent text-xs text-slate-600 outline-none px-2" />
+                          <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/play/${currentBoardId || ''}/room-${Date.now().toString(36)}`); addToast('プレイURLをコピーしました', 'success'); }} className="p-2 hover:bg-slate-50 rounded-lg text-purple-600 transition-colors">
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {currentBoardId && (
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">🤝 編集用URL (作者仲間を招待)</label>
+                          <div className="bg-white border border-slate-200 rounded-xl p-2 flex items-center gap-2">
+                            <input type="text" readOnly value={`${window.location.origin}${window.location.pathname}#/editor/${currentBoardId}`} className="flex-1 bg-transparent text-xs text-slate-600 outline-none px-2" />
+                            <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/editor/${currentBoardId}`); addToast('編集用URLをコピーしました', 'success'); }} className="p-2 hover:bg-slate-50 rounded-lg text-purple-600 transition-colors">
+                              <Copy className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => setShowShareModal(false)}
+                    className="w-full mt-8 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors"
+                  >
+                    閉じる
+                  </button>
+                </GlassCard>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <BoardSettingsPanel isOpen={showBoardSettings} onClose={() => setShowBoardSettings(false)} />
 
         <AnimatePresence>
           {savedBoardId && (

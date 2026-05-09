@@ -39,6 +39,7 @@ export const Canvas = () => {
         type: 'custom',
         position,
         style: type === 'area' ? { width: 400, height: 200 } : undefined,
+        zIndex: type === 'area' ? -10 : 0,
         data: {
           label: type === 'area' ? '新しいエリア' : '新しいマス',
           description: '',

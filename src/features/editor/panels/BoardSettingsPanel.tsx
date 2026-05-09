@@ -4,21 +4,15 @@ import { GlassCard } from '../../../components/ui/GlassCard';
 import type { DiceType, ParameterDef } from '../../../types/board';
 import { Settings, X, Plus, Trash2 } from 'lucide-react';
 
-export const BoardSettingsPanel = () => {
-  const [isOpen, setIsOpen] = useState(false);
+interface BoardSettingsPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const BoardSettingsPanel = ({ isOpen, onClose }: BoardSettingsPanelProps) => {
   const { boardSettings, updateBoardSettings } = useEditorStore();
 
-  if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="w-full p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm text-slate-700 transition-colors flex items-center justify-center gap-2"
-      >
-        <Settings className="w-4 h-4" />
-        ボード設定を開く
-      </button>
-    );
-  }
+  if (!isOpen) return null;
 
   // パラメータの追加
   const addParameter = () => {
@@ -43,7 +37,7 @@ export const BoardSettingsPanel = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 pointer-events-auto" onClick={() => setIsOpen(false)}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 pointer-events-auto" onClick={onClose}>
       <GlassCard className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl rounded-3xl border-purple-100" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white/50">
@@ -54,7 +48,7 @@ export const BoardSettingsPanel = () => {
             </h2>
             <p className="text-xs text-slate-500 mt-1">すごろくのルールやシステムをカスタマイズします</p>
           </div>
-          <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
             <X className="w-6 h-6 text-slate-400" />
           </button>
         </div>

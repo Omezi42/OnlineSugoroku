@@ -1,6 +1,5 @@
 import type { NodeType } from '../../../types/board';
 import { GlassCard } from '../../../components/ui/GlassCard';
-import { BoardSettingsPanel } from './BoardSettingsPanel';
 import { X } from 'lucide-react';
 
 export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
@@ -48,11 +47,6 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
           ))}
         </div>
 
-      </div>
-      
-      <div className="mt-6 border-t border-slate-200/50 pt-6">
-        <h2 className="text-lg font-bold mb-4">⚙️ 盤面設定</h2>
-        <BoardSettingsPanel />
       </div>
     </GlassCard>
   );

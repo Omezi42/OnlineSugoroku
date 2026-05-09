@@ -25,6 +25,7 @@ interface EditorState extends HistorySnapshot {
 
   addNode: (node: Node<NodeData>) => void;
   updateNodeData: (id: string, data: Partial<NodeData>) => void;
+  updateNode: (id: string, updates: Partial<Node<NodeData>>) => void;
   removeNode: (id: string) => void;
   updateBoardSettings: (settings: Partial<BoardSettings>) => void;
 
@@ -288,6 +289,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ...pushHistory(state),
       nodes: state.nodes.map((node) =>
         node.id === id ? { ...node, data: { ...node.data, ...data } } : node
+      ),
+    }));
+  },
+
+  updateNode: (id, updates) => {
+    set((state) => ({
+      ...pushHistory(state),
+      nodes: state.nodes.map((node) =>
+        node.id === id ? { ...node, ...updates } : node
       ),
     }));
   },

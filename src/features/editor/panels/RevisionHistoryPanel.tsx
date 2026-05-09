@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { History, RotateCcw, Clock, X, Plus } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
-import { getRevisions } from '../../../services/boardService';
+import { getRevisions, updateRevisionNote } from '../../../services/boardService';
 import type { BoardRevision } from '../../../services/boardService';
 import { useEditorStore } from '../store';
 import { useToast } from '../../../hooks/useToast';
+import { Edit3, Check } from 'lucide-react';
 
 interface RevisionHistoryPanelProps {
   boardId: string;
@@ -14,6 +15,8 @@ interface RevisionHistoryPanelProps {
 export const RevisionHistoryPanel = ({ boardId, onClose }: RevisionHistoryPanelProps) => {
   const [revisions, setRevisions] = useState<BoardRevision[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -24,6 +27,7 @@ export const RevisionHistoryPanel = ({ boardId, onClose }: RevisionHistoryPanelP
   }, [boardId, addToast]);
 
   const handleRestore = (rev: BoardRevision) => {
+    if (editingId) return; // 編集中の場合はスキップ
     if (!window.confirm(`「${rev.note || '過去の状態'}」を復元しますか？\n現在の未保存の編集内容は失われます。`)) return;
 
     useEditorStore.setState({
@@ -35,6 +39,21 @@ export const RevisionHistoryPanel = ({ boardId, onClose }: RevisionHistoryPanelP
     });
     addToast('リビジョンを復元しました', 'success');
     onClose();
+  };
+
+  const handleUpdateNote = async (id: string) => {
+    if (!editValue.trim()) {
+      setEditingId(null);
+      return;
+    }
+    try {
+      await updateRevisionNote(boardId, id, editValue);
+      setRevisions(revisions.map(r => r.id === id ? { ...r, note: editValue } : r));
+      setEditingId(null);
+      addToast('メモを更新しました', 'success');
+    } catch {
+      addToast('メモの更新に失敗しました', 'danger');
+    }
   };
 
   const formatDate = (timestamp: any) => {
@@ -78,30 +97,75 @@ export const RevisionHistoryPanel = ({ boardId, onClose }: RevisionHistoryPanelP
             </div>
           )}
           {revisions.map((rev) => (
-            <button
+            <div
               key={rev.id}
-              onClick={() => handleRestore(rev)}
-              className="w-full text-left p-4 rounded-2xl bg-white/60 hover:bg-white border border-transparent hover:border-purple-200 transition-all group shadow-sm"
+              className="group relative"
             >
-              <div className="flex justify-between items-start mb-1">
-                <span className="text-sm font-bold text-slate-800 group-hover:text-purple-600 transition-colors">
-                  {rev.note || '自動バックアップ'}
-                </span>
-                <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {formatDate(rev.createdAt)}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                {rev.nodes.length}マス / {rev.edges.length}ルート
-              </p>
-              <div className="mt-2 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-xs font-bold text-purple-500 flex items-center gap-1">
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  復元する
-                </span>
-              </div>
-            </button>
+              <button
+                onClick={() => handleRestore(rev)}
+                className={`w-full text-left p-4 rounded-2xl bg-white/60 hover:bg-white border border-transparent hover:border-purple-200 transition-all shadow-sm ${
+                  editingId === rev.id ? 'ring-2 ring-purple-400' : ''
+                }`}
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <div className="flex-1 mr-2">
+                    {editingId === rev.id ? (
+                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleUpdateNote(rev.id);
+                            if (e.key === 'Escape') setEditingId(null);
+                          }}
+                          className="w-full text-sm font-bold text-slate-800 bg-white border border-purple-200 rounded-lg px-2 py-1 outline-none"
+                          placeholder="メモを入力..."
+                        />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateNote(rev.id);
+                          }}
+                          className="p-1.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-sm font-bold text-slate-800 group-hover:text-purple-600 transition-colors block truncate">
+                        {rev.note || '自動バックアップ'}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 flex items-center gap-1 shrink-0">
+                    <Clock className="w-3 h-3" />
+                    {formatDate(rev.createdAt)}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {rev.nodes.length}マス / {rev.edges.length}ルート
+                </p>
+                <div className="mt-2 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingId(rev.id);
+                      setEditValue(rev.note || '');
+                    }}
+                    className="text-[10px] text-slate-400 hover:text-purple-500 flex items-center gap-1 font-bold"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    メモを編集
+                  </button>
+                  <span className="text-xs font-bold text-purple-500 flex items-center gap-1">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    復元する
+                  </span>
+                </div>
+              </button>
+            </div>
           ))}
         </div>
 
