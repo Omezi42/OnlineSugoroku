@@ -17,6 +17,7 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
     { type: 'minus', label: 'マイナス', emoji: '💀', colorClass: 'bg-gradient-to-r from-red-400 to-red-600' },
     { type: 'stop', label: 'ストップ', emoji: '🛑', colorClass: 'bg-gradient-to-r from-orange-400 to-orange-600' },
     { type: 'normal', label: '通常マス', emoji: '⬜', colorClass: 'bg-gradient-to-r from-slate-400 to-slate-600' },
+    { type: 'area', label: 'エリア枠', emoji: '🖼️', colorClass: 'bg-sky-400' },
   ];
 
   return (
@@ -48,13 +49,6 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
           ))}
         </div>
 
-        <button
-          onClick={() => useEditorStore.getState().addArea()}
-          className="mt-4 w-full p-3 rounded-xl bg-white/70 border-2 border-dashed border-purple-200 text-purple-600 font-bold text-sm flex items-center justify-center gap-2 hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm"
-        >
-          <Layers className="w-4 h-4" />
-          エリア（枠）を追加
-        </button>
       </div>
       
       <div className="mt-6 border-t border-slate-200/50 pt-6">

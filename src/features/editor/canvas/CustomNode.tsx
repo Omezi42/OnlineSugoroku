@@ -1,4 +1,4 @@
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { NodeData } from '../../../types/board';
 import { PlayerIcon } from '../../../components/ui/PlayerIcon';
@@ -40,18 +40,27 @@ export const CustomNode = ({ data, selected }: { data: NodeData, selected?: bool
     return (
       <div
         className={cn(
-          'relative rounded-3xl border-2 border-dashed shadow-inner backdrop-blur-[2px]',
+          'relative rounded-3xl border-2 border-dashed shadow-inner backdrop-blur-[2px] transition-all',
           selected ? 'border-purple-400 ring-4 ring-purple-200' : 'border-white/70'
         )}
         style={{
-          width: data.areaWidth || 560,
-          height: data.areaHeight || 280,
+          width: '100%',
+          height: '100%',
+          minWidth: 100,
+          minHeight: 50,
           background: `${data.areaColor || '#38bdf8'}22`,
           boxShadow: `inset 0 0 0 1px ${data.areaColor || '#38bdf8'}44`,
         }}
       >
+        <NodeResizer 
+          minWidth={200} 
+          minHeight={100} 
+          isVisible={selected} 
+          lineClassName="border-purple-400 border-2" 
+          handleClassName="w-3 h-3 bg-white border-2 border-purple-500 rounded-sm"
+        />
         <div
-          className="absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-bold text-white shadow-md"
+          className="absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-bold text-white shadow-md select-none"
           style={{ background: data.areaColor || '#38bdf8' }}
         >
           {data.label}

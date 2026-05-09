@@ -25,7 +25,6 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
   const controls = useAnimation();
 
   const getRotationForValue = (val: number) => {
-    // 1d6以外（コインや1d10など）の場合は正面(0,0,0)に数字を出すだけにする
     if (diceType !== '1d6') return { x: 0, y: 0, z: 0 };
     switch (val) {
       case 1: return { x: 0, y: 0, z: 0 };
@@ -45,33 +44,33 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
     const rollResult = rollSingleDice(diceType);
     setResult(null);
 
-    // 物理的な跳ね返りと回転
+    // シャッフルアニメーション
     await controls.start({
-      y: [0, -80, 0],
+      y: [0, -60, 0],
       rotateX: [0, 360, 720],
       rotateY: [0, 540, 1080],
       scale: [1, 1.1, 1],
-      transition: { duration: 1.0, ease: "easeInOut" }
+      transition: { duration: 0.8, ease: "easeInOut" }
     });
 
     setResult(rollResult);
     setIsRolling(false);
     
-    // 確定後の角度へ
     const finalRot = getRotationForValue(rollResult);
     await controls.start({
       rotateX: finalRot.x,
       rotateY: finalRot.y,
       rotateZ: finalRot.z,
-      transition: { duration: 0.3, type: "spring", stiffness: 200 }
+      transition: { duration: 0.4, type: "spring", stiffness: 260, damping: 20 }
     });
 
     setTimeout(() => {
       onRollComplete(rollResult);
-    }, 600);
+    }, 500);
   };
 
-  const faceStyle = "absolute w-full h-full bg-white border-2 border-slate-200 flex items-center justify-center shadow-[inset_0_0_15px_rgba(0,0,0,0.05)] rounded-xl backface-hidden";
+  const faceStyle = "absolute w-full h-full bg-white border border-slate-200 flex items-center justify-center shadow-[inset_0_0_15px_rgba(0,0,0,0.05)] rounded-lg backface-hidden overflow-hidden";
+  const dotStyle = "w-3 h-3 rounded-full bg-slate-800 shadow-sm";
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -88,46 +87,52 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
           className="w-full h-full relative"
           style={{ transformStyle: 'preserve-3d' }}
         >
+          {/* 隙間を埋めるための中央の立方体（コア） */}
+          <div className="absolute inset-0 bg-slate-100" style={{ transform: 'scale(0.99)' }} />
+
           {diceType === '1d6' ? (
             <>
-              {/* 1d6の3D面 */}
+              {/* 1: Front */}
               <div className={faceStyle} style={{ transform: 'translateZ(40px)' }}>
-                <div className="w-5 h-5 rounded-full bg-red-500 shadow-sm" />
+                <div className="w-6 h-6 rounded-full bg-red-500 shadow-sm" />
               </div>
+              {/* 6: Back */}
               <div className={faceStyle} style={{ transform: 'rotateY(180deg) translateZ(40px)' }}>
-                <div className="grid grid-cols-2 gap-2">
-                  {[...Array(6)].map((_, i) => <div key={i} className="w-2.5 h-2.5 rounded-full bg-slate-800" />)}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  {[...Array(6)].map((_, i) => <div key={i} className={dotStyle} />)}
                 </div>
               </div>
+              {/* 2: Right */}
               <div className={faceStyle} style={{ transform: 'rotateY(90deg) translateZ(40px)' }}>
-                <div className="grid grid-cols-2 gap-4 -rotate-45">
-                  {[...Array(2)].map((_, i) => <div key={i} className="w-2.5 h-2.5 rounded-full bg-slate-800" />)}
+                <div className="w-full h-full p-4 relative">
+                  <div className={dotStyle + " absolute top-4 left-4"} />
+                  <div className={dotStyle + " absolute bottom-4 right-4"} />
                 </div>
               </div>
+              {/* 5: Left */}
               <div className={faceStyle} style={{ transform: 'rotateY(-90deg) translateZ(40px)' }}>
-                <div className="grid grid-cols-2 gap-2 p-3">
-                   <div className="w-2.5 h-2.5 rounded-full bg-slate-800" />
-                   <div className="w-2.5 h-2.5 rounded-full bg-slate-800" />
-                   <div className="w-2.5 h-2.5 rounded-full bg-slate-800 col-span-2 mx-auto" />
-                   <div className="w-2.5 h-2.5 rounded-full bg-slate-800" />
-                   <div className="w-2.5 h-2.5 rounded-full bg-slate-800" />
+                <div className="w-full h-full p-3 grid grid-cols-3 grid-rows-3 items-center justify-items-center">
+                  <div className={dotStyle} /> <div /> <div className={dotStyle} />
+                  <div /> <div className={dotStyle} /> <div />
+                  <div className={dotStyle} /> <div /> <div className={dotStyle} />
                 </div>
               </div>
+              {/* 3: Top */}
               <div className={faceStyle} style={{ transform: 'rotateX(90deg) translateZ(40px)' }}>
-                <div className="flex flex-col gap-2 -rotate-45">
-                  <div className="w-2.5 h-2.5 rounded-full bg-slate-800 self-start" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-slate-800 self-center" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-slate-800 self-end" />
+                <div className="w-full h-full p-4 relative">
+                  <div className={dotStyle + " absolute top-4 left-4"} />
+                  <div className={dotStyle + " absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"} />
+                  <div className={dotStyle + " absolute bottom-4 right-4"} />
                 </div>
               </div>
+              {/* 4: Bottom */}
               <div className={faceStyle} style={{ transform: 'rotateX(-90deg) translateZ(40px)' }}>
-                <div className="grid grid-cols-2 gap-3">
-                  {[...Array(4)].map((_, i) => <div key={i} className="w-2.5 h-2.5 rounded-full bg-slate-800" />)}
+                <div className="grid grid-cols-2 gap-4">
+                  {[...Array(4)].map((_, i) => <div key={i} className={dotStyle} />)}
                 </div>
               </div>
             </>
           ) : (
-            /* 1d6以外は数字を表示するのみのシンプルな3Dボックス */
             <div className={faceStyle} style={{ transform: 'translateZ(40px)' }}>
                <span className="text-4xl font-black text-slate-800">
                  {isRolling ? '?' : (result || 'Go!')}
@@ -152,4 +157,3 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
     </div>
   );
 };
-

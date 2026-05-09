@@ -34,7 +34,6 @@ interface EditorState extends HistorySnapshot {
   pasteClipboard: () => void;
   applyLayout: (mode: LayoutMode) => void;
   applyTemplate: (template: TemplateType) => void;
-  addArea: () => void;
   setSnapToGrid: (enabled: boolean) => void;
   setGridSize: (size: number) => void;
   snapSelectedToGrid: () => void;
@@ -381,16 +380,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
-  addArea: () => {
-    const id = `area-${Date.now()}`;
-    set((state) => ({
-      ...pushHistory(state),
-      nodes: [
-        createNode(id, '新しいエリア', 'area', 180, 120, '盤面を視覚的に区切る背景エリアです'),
-        ...state.nodes,
-      ],
-    }));
-  },
 
   setSnapToGrid: (enabled) => set({ snapToGrid: enabled }),
 

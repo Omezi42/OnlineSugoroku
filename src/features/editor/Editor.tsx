@@ -53,16 +53,21 @@ export default function Editor() {
   const location = useLocation();
   const isUpdatingFromRemote = useRef(false);
   const lastLocalUpdate = useRef(0);
+  
+  // 常に最新の状態を参照するためのRef
+  const stateRef = useRef({ boardName, boardDescription, authorName, isPublic, allowPublicEdit });
+  useEffect(() => {
+    stateRef.current = { boardName, boardDescription, authorName, isPublic, allowPublicEdit };
+  }, [boardName, boardDescription, authorName, isPublic, allowPublicEdit]);
 
   useEffect(() => {
     if (!routeBoardId) {
-      // 新規作成の場合、テンプレートの指定があれば適用
+      // 新規作成の場合、ユニークなIDを生成してリダイレクト（共同編集を可能にするため）
+      const newId = crypto.randomUUID();
       const params = new URLSearchParams(location.search);
       const template = params.get('template');
-      if (template) {
-        useEditorStore.getState().applyTemplate(template as any);
-        setBoardName('テンプレートから作成');
-      }
+      const search = template ? `?template=${template}` : '';
+      navigate(`/editor/${newId}${search}`, { replace: true });
       return;
     }
     let cancelled = false;
@@ -70,8 +75,16 @@ export default function Editor() {
       .then((board) => {
         if (cancelled) return;
         if (!board) {
-          alert('編集する盤面が見つかりませんでした。');
-          navigate('/editor');
+          // 盤面が見つからない場合は新規盤面として扱う（リダイレクト直後など）
+          const params = new URLSearchParams(location.search);
+          const template = params.get('template');
+          if (template) {
+            useEditorStore.getState().applyTemplate(template as any);
+            setBoardName('テンプレートから作成');
+          } else {
+            // デフォルトの初期状態（storeの初期値）を使用
+          }
+          setIsLoadingBoard(false);
           return;
         }
         const editable = canEditBoard(board, user?.uid, localOwnerId);
@@ -129,7 +142,7 @@ export default function Editor() {
     const unsubscribe = subscribeToBoard(currentBoardId, (data) => {
       if (!data) return;
       // 自分が直近で保存したばかりなら上書きをスキップ（エコー防止）
-      if (Date.now() - lastLocalUpdate.current < 2500) return;
+      if (Date.now() - lastLocalUpdate.current < 1000) return;
 
       isUpdatingFromRemote.current = true;
       useEditorStore.getState().mergeRemoteState({
@@ -137,11 +150,13 @@ export default function Editor() {
         edges: data.edges,
         settings: data.settings,
       });
-      if (data.name !== boardName) setBoardName(data.name);
-      if (data.description !== boardDescription) setBoardDescription(data.description || '');
-      if (data.authorName !== authorName) setAuthorName(data.authorName || '');
-      if (data.isPublic !== isPublic) setIsPublic(Boolean(data.isPublic));
-      if (data.allowPublicEdit !== allowPublicEdit) setAllowPublicEdit(Boolean(data.allowPublicEdit));
+      
+      const current = stateRef.current;
+      if (data.name !== current.boardName) setBoardName(data.name);
+      if (data.description !== current.boardDescription) setBoardDescription(data.description || '');
+      if (data.authorName !== current.authorName) setAuthorName(data.authorName || '');
+      if (data.isPublic !== current.isPublic) setIsPublic(Boolean(data.isPublic));
+      if (data.allowPublicEdit !== current.allowPublicEdit) setAllowPublicEdit(Boolean(data.allowPublicEdit));
       
       addToast('他のユーザーによる変更を同期しました', 'info');
       setSyncStatus('synced');
@@ -401,8 +416,14 @@ export default function Editor() {
                 </div>
                 {!canEdit && <p className="text-[10px] font-bold text-amber-600">コピーとして保存されます</p>}
                 
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 min-h-[24px]">
                   <AnimatePresence mode="wait">
+                    {allowPublicEdit && (
+                      <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
+                        <Globe2 className="w-3 h-3" />
+                        共同編集ON
+                      </motion.div>
+                    )}
                     {syncStatus === 'saving' && (
                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 text-[10px] text-slate-500 bg-white/50 px-2 py-0.5 rounded-md">
                         <Loader2 className="w-3 h-3 animate-spin" />
@@ -472,27 +493,41 @@ export default function Editor() {
                   </div>
                   <h2 className="text-2xl font-bold text-slate-800 mb-2">保存完了！</h2>
                   <p className="text-slate-500 mb-6">プレイ用URLを共有して、すぐにテストプレイできます。</p>
-                  <div className="text-left mb-1 mt-4">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">プレイ用URL (みんなを招待)</label>
-                    <div className="bg-white/50 border border-slate-200 rounded-lg p-2 flex items-center gap-2">
+                  <div className="text-left mb-4 mt-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">🎮 プレイ用URL (みんなを招待)</label>
+                    <div className="bg-white/70 border border-slate-200 rounded-xl p-2.5 flex items-center gap-2 shadow-inner">
                       <input type="text" readOnly value={`${window.location.origin}${window.location.pathname}#/play/${savedBoardId}/room-${Date.now().toString(36)}`} className="flex-1 bg-transparent text-sm text-slate-600 outline-none px-2" />
-                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/play/${savedBoardId}/room-${Date.now().toString(36)}`); addToast('プレイURLをコピーしました', 'success'); }} className="p-2 bg-white rounded-md text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors shadow-sm" title="URLをコピー">
-                        <Copy className="w-4 h-4" />
+                      <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/play/${savedBoardId}/room-${Date.now().toString(36)}`); addToast('プレイURLをコピーしました', 'success'); }} className="p-2.5 bg-white rounded-lg text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-all shadow-sm border border-slate-100" title="URLをコピー">
+                        <Copy className="w-5 h-5" />
                       </button>
                     </div>
                   </div>
+
                   {allowPublicEdit && (
-                    <div className="text-left mb-6">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">共同編集用URL (作者仲間を招待)</label>
-                      <div className="bg-white/50 border border-slate-200 rounded-lg p-2 flex items-center gap-2">
-                        <input type="text" readOnly value={`${window.location.origin}${window.location.pathname}#/editor/${savedBoardId}`} className="flex-1 bg-transparent text-sm text-slate-600 outline-none px-2" />
-                        <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/editor/${savedBoardId}`); addToast('編集用URLをコピーしました', 'success'); }} className="p-2 bg-white rounded-md text-slate-600 hover:text-purple-600 hover:bg-purple-50 transition-colors shadow-sm" title="URLをコピー">
-                          <Copy className="w-4 h-4" />
+                    <div className="text-left mb-8">
+                      <div className="flex items-center gap-2 mb-1 ml-1">
+                        <label className="text-[10px] font-bold text-green-600 uppercase tracking-wider">🤝 共同編集用URL (作者仲間を招待)</label>
+                        <span className="text-[9px] bg-green-100 text-green-700 px-1.5 rounded-full font-bold">権限あり</span>
+                      </div>
+                      <div className="bg-green-50/50 border border-green-100 rounded-xl p-2.5 flex items-center gap-2 shadow-inner">
+                        <input type="text" readOnly value={`${window.location.origin}${window.location.pathname}#/editor/${savedBoardId}`} className="flex-1 bg-transparent text-sm text-green-700 outline-none px-2" />
+                        <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/editor/${savedBoardId}`); addToast('編集用URLをコピーしました', 'success'); }} className="p-2.5 bg-white rounded-lg text-green-600 hover:text-green-700 hover:bg-green-50 transition-all shadow-sm border border-green-100" title="URLをコピー">
+                          <Copy className="w-5 h-5" />
                         </button>
                       </div>
+                      <p className="mt-2 text-[10px] text-slate-400 text-center leading-relaxed">
+                        このURLを受け取った人は、あなたと一緒にリアルタイムで盤面を編集できます。
+                      </p>
                     </div>
                   )}
-                  {!allowPublicEdit && <div className="h-4" />}
+                  {!allowPublicEdit && (
+                    <div className="bg-slate-50 p-4 rounded-xl mb-8 border border-slate-100">
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        共同編集はOFFです。URLを知っている人は閲覧のみ可能です。<br/>
+                        設定から「共同編集を許可」をONにすると友達と一緒に作成できます。
+                      </p>
+                    </div>
+                  )}
                   <div className="flex flex-col gap-3">
                     <button onClick={handleTestPlay} className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all">
                       <Play className="w-5 h-5" />

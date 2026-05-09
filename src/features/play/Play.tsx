@@ -53,6 +53,8 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const previousLogCount = useRef<number>(0);
   const { addToast } = useToast();
   const { settings: soundSettings, setSettings: setSoundSettings, playSe, playBgm, stopBgm } = useSoundSettings();
+  const logContainerRef = useRef<HTMLDivElement>(null);
+  const lastActionTimestamp = useRef<number>(0);
   const navigate = useNavigate();
 
   // 初回参加処理
@@ -154,7 +156,29 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       }
       previousLogCount.current = gameState.logs.length;
     }
-  }, [gameState, showResult, showResultButton]);
+
+    // ログの自動スクロール
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+
+    // 他人のアクション同期（アニメーション再生）
+    if (gameState.lastAction && gameState.lastAction.timestamp > lastActionTimestamp.current) {
+      lastActionTimestamp.current = gameState.lastAction.timestamp;
+      const action = gameState.lastAction;
+      
+      if (action.playerId !== localPlayerId) {
+        if (action.type === 'roll' && action.value) {
+          addToast(`${gameState.players[action.playerId]?.name} が ${action.value} を出した！`, 'info');
+          // 他人のサイコロSEを鳴らすなどの演出が可能
+          playSe('dice');
+        }
+        if (action.type === 'move' && action.path) {
+          animateMove(action.playerId, action.path);
+        }
+      }
+    }
+  }, [gameState, showResult, showResultButton, localPlayerId, addToast, playSe]);
 
   // ハートビートとホスト委譲ロジック
   useEffect(() => {
@@ -341,6 +365,17 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
       // アニメーション実行
       await animateMove(currentPid, moveResult.passedNodeIds);
+
+      // 他のプレイヤーに同期
+      await updateGameState(roomId, {
+        lastAction: {
+          playerId: currentPid,
+          type: 'roll',
+          value: result,
+          path: moveResult.passedNodeIds,
+          timestamp: Date.now(),
+        }
+      } as any);
 
       if (moveResult.needsBranchChoice && moveResult.branchOptions) {
         // 分岐選択が必要
@@ -716,14 +751,14 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
               <AnimatePresence>
                 {showLogPanel && (
                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
-                    <GlassCard className="p-4 w-72 max-h-64 overflow-y-auto">
+                    <GlassCard className="p-4 w-72">
                       <h3 className="font-bold text-slate-800 mb-2 text-sm">📜 ゲームログ</h3>
-                      <div className="space-y-1.5 flex flex-col-reverse">
-                        {gameState.logs.slice(-20).reverse().map((log) => (
-                          <div key={log.id} className={`text-xs p-1.5 rounded ${
+                      <div ref={logContainerRef} className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                        {gameState.logs.slice(-50).map((log) => (
+                          <div key={log.id} className={`text-[11px] p-2 rounded-lg border border-slate-100 ${
                             log.type === 'action' ? 'bg-purple-50 text-purple-700' :
                             log.type === 'move' ? 'bg-blue-50 text-blue-700' :
-                            'bg-white/50 text-slate-600'
+                            'bg-white/70 text-slate-600'
                           }`}>
                             {log.message}
                           </div>

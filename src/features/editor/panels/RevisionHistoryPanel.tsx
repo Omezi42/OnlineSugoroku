@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { History, RotateCcw, Clock, X } from 'lucide-react';
+import { History, RotateCcw, Clock, X, Plus } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { getRevisions } from '../../../services/boardService';
 import type { BoardRevision } from '../../../services/boardService';
@@ -59,6 +59,16 @@ export const RevisionHistoryPanel = ({ boardId, onClose }: RevisionHistoryPanelP
           <History className="w-6 h-6 text-purple-500" />
           バージョン履歴
         </h2>
+
+        <button
+          onClick={() => {
+            window.dispatchEvent(new Event('create-revision'));
+          }}
+          className="w-full mb-6 p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-2 border-dashed border-purple-300 text-purple-700 font-bold hover:from-purple-500/20 hover:to-pink-500/20 transition-all flex items-center justify-center gap-2 shadow-sm group"
+        >
+          <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          現在の状態を保存する
+        </button>
 
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
           {isLoading && <div className="text-center py-10 text-slate-400">読み込み中...</div>}

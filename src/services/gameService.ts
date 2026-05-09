@@ -25,6 +25,7 @@ export const createGameRoom = async (roomId: string, boardId: string, hostPlayer
       },
     ],
     pendingInteraction: null,
+    lastAction: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };

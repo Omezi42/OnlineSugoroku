@@ -38,6 +38,15 @@ export interface PendingInteraction {
   action?: Action; 
 }
 
+// 直近の行動記録（同期アニメーション用）
+export interface LastAction {
+  playerId: string;
+  type: 'roll' | 'move' | 'action';
+  value?: number;
+  path?: string[];
+  timestamp: number;
+}
+
 // ゲーム全体のステート（Firestoreで同期するデータ）
 export interface GameState {
   roomId: string;
@@ -48,6 +57,7 @@ export interface GameState {
   currentTurnIndex: number;
   logs: LogEntry[];
   pendingInteraction: PendingInteraction | null;
+  lastAction: LastAction | null;
   createdAt: number;
   updatedAt: number;
 }

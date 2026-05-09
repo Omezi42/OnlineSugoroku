@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEditorStore } from '../store';
 import {
   Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2,
-  Rows3, Workflow, CircleDot, Map as MapIcon, Maximize2, Magnet,
+  Rows3, Workflow, CircleDot, Maximize2, Magnet,
 } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { validateBoard, type ValidationResult } from '../utils/boardValidation';
@@ -13,7 +13,7 @@ import { importBoardData } from '../utils/boardImport';
 export const EditorToolbar = () => {
   const {
     nodes, edges, past, future, snapToGrid,
-    undo, redo, copySelected, pasteClipboard, applyLayout, addArea, setSnapToGrid,
+    undo, redo, copySelected, pasteClipboard, applyLayout, setSnapToGrid,
   } = useEditorStore();
   const { fitView } = useReactFlow();
   const [validation, setValidation] = useState<ValidationResult | null>(null);
@@ -164,13 +164,6 @@ export const EditorToolbar = () => {
             <span className="hidden sm:inline">整列</span>
           </button>
 
-          <button
-            onClick={addArea}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors"
-          >
-            <MapIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">エリア</span>
-          </button>
 
           <button
             onClick={() => fitView({ padding: 0.2, duration: 500 })}

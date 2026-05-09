@@ -92,6 +92,42 @@ export const EditorTutorial = ({ onComplete }: { onComplete: () => void }) => {
 
   const step = TUTORIAL_STEPS[currentStep];
 
+  const getStepStyle = () => {
+    const cardWidth = 320;
+    const cardHeight = 240; // およその高さ
+    const padding = 24;
+
+    let top = 0;
+    let left = 0;
+    let transform = 'none';
+
+    if (step.position === 'center') {
+      top = window.innerHeight / 2;
+      left = window.innerWidth / 2;
+      transform = 'translate(-50%, -50%)';
+    } else if (step.position === 'right') {
+      top = coords.top;
+      left = coords.left + coords.width + padding;
+    } else if (step.position === 'left') {
+      top = coords.top;
+      left = coords.left - cardWidth - padding;
+    } else if (step.position === 'bottom') {
+      top = coords.top + coords.height + padding;
+      left = coords.left + (coords.width / 2) - (cardWidth / 2);
+    } else { // top
+      top = coords.top - cardHeight - padding;
+      left = coords.left;
+    }
+
+    // 画面外はみ出し防止
+    if (step.position !== 'center') {
+      left = Math.max(padding, Math.min(left, window.innerWidth - cardWidth - padding));
+      top = Math.max(padding, Math.min(top, window.innerHeight - 300));
+    }
+
+    return { top, left, transform };
+  };
+
   return (
     <div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden">
       {/* Backdrop with hole */}
@@ -124,17 +160,7 @@ export const EditorTutorial = ({ onComplete }: { onComplete: () => void }) => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
           className="absolute pointer-events-auto"
-          style={
-            step.position === 'center'
-              ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
-              : step.position === 'right'
-              ? { top: coords.top, left: coords.left + coords.width + 24 }
-              : step.position === 'left'
-              ? { top: coords.top, left: coords.left - 344 }
-              : step.position === 'bottom'
-              ? { top: coords.top + coords.height + 24, left: coords.left + (coords.width / 2) - 160 }
-              : { top: coords.top - 200, left: coords.left }
-          }
+          style={getStepStyle()}
         >
           <GlassCard className="w-80 p-6 shadow-2xl border-purple-200/50">
             <div className="flex justify-between items-start mb-4">

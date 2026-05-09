@@ -38,13 +38,15 @@ export const Canvas = () => {
         id: `node-${Date.now()}`,
         type: 'custom',
         position,
+        style: type === 'area' ? { width: 400, height: 200 } : undefined,
         data: {
-          label: '新しいマス',
+          label: type === 'area' ? '新しいエリア' : '新しいマス',
           description: '',
           nodeType: type,
           size: 'medium' as NodeSize,
           isStop: type === 'stop',
           actions: [],
+          areaColor: type === 'area' ? '#38bdf8' : undefined,
         },
       };
 

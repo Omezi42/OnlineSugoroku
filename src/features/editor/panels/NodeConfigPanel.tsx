@@ -82,30 +82,8 @@ export const NodeConfigPanel = ({ onClose }: { onClose?: () => void }) => {
                   className="w-12 h-10 rounded-lg border border-slate-200 cursor-pointer"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">幅</label>
-                  <input
-                    type="number"
-                    min={160}
-                    className="w-full p-2 rounded-lg border border-slate-200 bg-white/50 focus:ring-2 focus:ring-purple-400 outline-none transition-all"
-                    value={data.areaWidth || 560}
-                    onChange={(e) => updateNodeData(id, { areaWidth: Number(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">高さ</label>
-                  <input
-                    type="number"
-                    min={120}
-                    className="w-full p-2 rounded-lg border border-slate-200 bg-white/50 focus:ring-2 focus:ring-purple-400 outline-none transition-all"
-                    value={data.areaHeight || 280}
-                    onChange={(e) => updateNodeData(id, { areaHeight: Number(e.target.value) })}
-                  />
-                </div>
-              </div>
               <p className="text-xs leading-relaxed text-slate-500 bg-sky-50 p-3 rounded-xl">
-                エリアは盤面を視覚的に区切る背景です。移動ルートには使われません。
+                エリアはマウスで直接角をドラッグして大きさを変更できます。
               </p>
             </>
           )}
