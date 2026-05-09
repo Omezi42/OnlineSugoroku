@@ -88,7 +88,6 @@ export default function Editor() {
         setBoardDescription(board.description || '');
         setAuthorName(board.authorName || '');
         setCategory(board.category || 'party');
-        setAgeRating(board.ageRating || 'all');
         setIsPublic(Boolean(board.isPublic));
         setAllowPublicEdit(Boolean(board.allowPublicEdit));
         setDraftAvailable(Boolean(localStorage.getItem(draftKey)));
@@ -140,7 +139,6 @@ export default function Editor() {
       if (data.name !== boardName) setBoardName(data.name);
       if (data.description !== boardDescription) setBoardDescription(data.description || '');
       if (data.authorName !== authorName) setAuthorName(data.authorName || '');
-      if (data.ageRating !== ageRating) setAgeRating(data.ageRating || 'all');
       if (data.isPublic !== isPublic) setIsPublic(Boolean(data.isPublic));
       if (data.allowPublicEdit !== allowPublicEdit) setAllowPublicEdit(Boolean(data.allowPublicEdit));
       
@@ -170,7 +168,6 @@ export default function Editor() {
           ownerId,
           ownerName,
           category,
-          ageRating,
           nodes,
           edges,
           settings: boardSettings,
@@ -205,7 +202,6 @@ export default function Editor() {
       setBoardDescription(draft.description || '');
       setAuthorName(draft.authorName || '');
       setCategory(draft.category || 'party');
-      setAgeRating(draft.ageRating || 'all');
       setIsPublic(Boolean(draft.isPublic));
       setAllowPublicEdit(Boolean(draft.allowPublicEdit));
       setDraftAvailable(false);

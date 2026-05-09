@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, X, Play } from 'lucide-react';
+import { ChevronRight, ChevronLeft, X } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
 
 interface TutorialStep {
