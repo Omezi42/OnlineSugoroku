@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import type { DiceType } from '../../../types/board';
 
