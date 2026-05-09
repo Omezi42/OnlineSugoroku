@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Play, PenTool, Sparkles, Users, X, ArrowRight, GalleryHorizontalEnd, Loader2, Pencil, BookOpen, Info, Search, SlidersHorizontal, Trash2, User, Calendar, TrendingUp, Share2, Copy, Flag, AlertTriangle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { GlassCard } from '../../components/ui/GlassCard';
-import { listBoards, listMyBoards, deleteBoard, cloneBoard, reportBoard } from '../../services/boardService';
+import { listBoards, listMyBoards, deleteBoard, cloneBoard, reportBoard, saveBoard } from '../../services/boardService';
 import type { BoardData, BoardSort } from '../../services/boardService';
 import { RulebookModal } from '../../components/RulebookModal';
 import { AuthPanel } from '../auth/AuthPanel';
@@ -31,6 +31,14 @@ const itemVariants: Variants = {
   visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 15 } },
 };
 
+const timestampToMillis = (value: any): number => {
+  if (typeof value === 'number') return value;
+  if (value && typeof value === 'object' && 'seconds' in value) {
+    return Number(value.seconds) * 1000;
+  }
+  return 0;
+};
+
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuthUser();
@@ -47,34 +55,35 @@ export default function Home() {
   const [sort, setSort] = useState<BoardSort>('recent');
   const { addToast } = useToast();
 
-  useEffect(() => {
-    let mounted = true;
+  const fetchPublicBoards = useCallback(async () => {
     setIsGalleryLoading(true);
-    listBoards({ maxCount: 12, search: searchText, category, sort })
-      .then((items) => {
-        if (mounted) setBoards(items);
-      })
-      .catch(() => {
-        if (mounted) setBoards([]);
-      })
-      .finally(() => {
-        if (mounted) setIsGalleryLoading(false);
-      });
-    return () => { mounted = false; };
+    try {
+      const items = await listBoards({ maxCount: 12, search: searchText, category, sort });
+      setBoards(items);
+    } catch {
+      setBoards([]);
+    } finally {
+      setIsGalleryLoading(false);
+    }
   }, [category, searchText, sort]);
 
-  useEffect(() => {
-    let mounted = true;
+  const fetchMyBoards = useCallback(async () => {
     const ownerId = user?.uid || localOwnerId;
-    listMyBoards(ownerId, 8)
-      .then((items) => {
-        if (mounted) setMyBoards(items);
-      })
-      .catch(() => {
-        if (mounted) setMyBoards([]);
-      });
-    return () => { mounted = false; };
-  }, [localOwnerId, user?.uid, user]);
+    try {
+      const items = await listMyBoards(ownerId, 8);
+      setMyBoards(items);
+    } catch {
+      setMyBoards([]);
+    }
+  }, [localOwnerId, user?.uid]);
+
+  useEffect(() => {
+    fetchPublicBoards();
+  }, [fetchPublicBoards]);
+
+  useEffect(() => {
+    fetchMyBoards();
+  }, [fetchMyBoards]);
 
   const handleJoin = (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -145,18 +154,43 @@ export default function Home() {
             </div>
           </div>
           <div className="flex flex-col gap-2 items-end">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white flex shrink-0 items-center justify-center shadow-md cursor-pointer" onClick={() => setSelectedBoard(board)}>
-              <Play className="w-5 h-5 ml-0.5" />
+            <div className="text-[10px] text-slate-400 font-medium">
+              {board.updatedAt ? new Date(timestampToMillis(board.updatedAt)).toLocaleDateString() : '不明'}
             </div>
-            {showDelete && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleDeleteBoard(board); }}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                title="盤面を削除"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
+            <div className="flex gap-1">
+              {showDelete && (
+                <>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const newStatus = !board.isPublic;
+                      try {
+                        await saveBoard({ ...board, isPublic: newStatus } as any);
+                        addToast(newStatus ? '盤面を公開しました' : '盤面を非公開にしました', 'success');
+                        fetchMyBoards();
+                        fetchPublicBoards();
+                      } catch (err) {
+                        addToast('設定の変更に失敗しました', 'danger');
+                      }
+                    }}
+                    className={`p-1.5 rounded-lg transition-all ${board.isPublic ? 'text-green-500 bg-green-100/50' : 'text-slate-400 bg-slate-100/50'}`}
+                    title={board.isPublic ? '現在公開中（クリックで非公開にする）' : '現在非公開（クリックで公開する）'}
+                  >
+                    {board.isPublic ? <Sparkles className="w-4 h-4" /> : <Info className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteBoard(board);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    title="削除"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
