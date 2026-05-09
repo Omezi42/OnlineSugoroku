@@ -469,6 +469,7 @@ export default function Editor() {
 
               {/* 共有ボタン */}
               <button
+                id="share-button"
                 onClick={() => setShowShareModal(true)}
                 className={`glass-panel p-3 rounded-xl shadow-sm transition-colors flex items-center justify-center h-[52px] ${
                   allowPublicEdit ? 'text-green-600 hover:bg-green-50' : 'text-slate-600 hover:text-purple-600'

@@ -246,15 +246,15 @@ export default function Home() {
                 <div className="absolute top-full left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 mt-2 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-30 p-2 flex flex-col gap-1">
                   <button onClick={() => navigate('/editor?template=party')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-pink-50 transition-colors">
                     <span className="font-bold text-slate-800">🎉 パーティー</span>
-                    <span className="block text-xs text-slate-500 mt-0.5">ミニゲームやワープ満載の楽しいルート</span>
+                    <span className="block text-xs text-slate-500 mt-0.5">ミニゲーム・ワープ満載！賑やかで波乱万丈な王道ルート（20マス超）</span>
                   </button>
                   <button onClick={() => navigate('/editor?template=branch')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-blue-50 transition-colors">
-                    <span className="font-bold text-slate-800">🔀 分岐ルート</span>
-                    <span className="block text-xs text-slate-500 mt-0.5">条件分岐やランダム分岐のある複雑なルート</span>
+                    <span className="font-bold text-slate-800">🔀 戦略分岐</span>
+                    <span className="block text-xs text-slate-500 mt-0.5">運命の二択や条件分岐を攻略せよ。選択が勝敗を分けるテクニカルルート</span>
                   </button>
                   <button onClick={() => navigate('/editor?template=long')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-purple-50 transition-colors">
-                    <span className="font-bold text-slate-800">🏔️ ロング</span>
-                    <span className="block text-xs text-slate-500 mt-0.5">15マスの蛇行ルートでじっくりプレイ</span>
+                    <span className="font-bold text-slate-800">🏔️ アドベンチャー</span>
+                    <span className="block text-xs text-slate-500 mt-0.5">50マスを超える壮大な旅路。ギミック攻略が鍵を握るロングコース</span>
                   </button>
                 </div>
               </div>

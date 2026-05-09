@@ -149,7 +149,7 @@ const createTemplate = (template: TemplateType): Pick<HistorySnapshot, 'nodes' |
   };
 
   if (template === 'party') {
-    // パーティー: 22マス、賑やかなイベントとループ
+    // パーティー: 20マス超、ミニゲーム・分岐・ワープ満載の王道ルート
     const partyData = [
       { label: 'スタート', type: 'start' },
       { label: 'おこづかい', type: 'plus', actions: [{ type: 'paramChange', paramId: 'money', amount: 500 }] },
@@ -243,7 +243,7 @@ const createTemplate = (template: TemplateType): Pick<HistorySnapshot, 'nodes' |
   }
 
   if (template === 'long') {
-    // ロング: 52マスの巨大マップ (グリッド蛇行)
+    // ロング: 50マスを超える壮大な旅路。ギミック攻略が鍵を握るロングコース
     const ROWS = 6;
     const COLS = 9;
     for (let r = 0; r < ROWS; r++) {
