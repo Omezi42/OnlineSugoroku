@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useEditorStore } from '../store';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import type { DiceType, ParameterDef } from '../../../types/board';
@@ -242,7 +241,7 @@ export const BoardSettingsPanel = ({ isOpen, onClose }: BoardSettingsPanelProps)
         {/* Footer */}
         <div className="p-6 border-t border-slate-100 bg-white/80">
           <button
-            onClick={() => setIsOpen(false)}
+            onClick={onClose}
             className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-2xl font-bold shadow-xl hover:shadow-purple-200 hover:-translate-y-0.5 transition-all"
           >
             設定を保存して閉じる

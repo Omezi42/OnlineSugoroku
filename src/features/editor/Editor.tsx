@@ -17,7 +17,6 @@ import { validateBoard } from './utils/boardValidation';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { getLocalOwnerId } from '../../services/localIdentity';
 import { useToast } from '../../hooks/useToast';
-import { checkBoardContent } from '../../utils/wordFilter';
 
 const categories = [
   { value: 'party', label: 'パーティー' },
@@ -627,7 +626,7 @@ export default function Editor() {
                     </div>
                   )}
                   <div className="flex flex-col gap-3">
-                    <button onClick={handleTestPlay} className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all">
+                    <button onClick={handlePlayClick} className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all">
                       <Play className="w-5 h-5" />
                       今すぐテストプレイ
                     </button>
