@@ -3,8 +3,8 @@ import { useReactFlow } from '@xyflow/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEditorStore } from '../store';
 import {
-  Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2, History,
-  Copy, ClipboardPaste, Rows3, Workflow, CircleDot, Map as MapIcon, Maximize2, Magnet,
+  Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2,
+  Rows3, Workflow, CircleDot, Map as MapIcon, Maximize2, Magnet,
 } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { validateBoard, type ValidationResult } from '../utils/boardValidation';
@@ -12,8 +12,8 @@ import { importBoardData } from '../utils/boardImport';
 
 export const EditorToolbar = () => {
   const {
-    nodes, edges, past, future, clipboard, snapToGrid, gridSize,
-    undo, redo, copySelected, pasteClipboard, applyLayout, addArea, setSnapToGrid, setGridSize, snapSelectedToGrid,
+    nodes, edges, past, future, snapToGrid,
+    undo, redo, copySelected, pasteClipboard, applyLayout, addArea, setSnapToGrid,
   } = useEditorStore();
   const { fitView } = useReactFlow();
   const [validation, setValidation] = useState<ValidationResult | null>(null);

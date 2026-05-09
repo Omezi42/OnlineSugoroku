@@ -9,7 +9,7 @@ import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
 import { canEditBoard, loadBoard, saveBoard, subscribeToBoard, saveRevision } from '../../services/boardService';
 import { GlassCard } from '../../components/ui/GlassCard';
-import { History, Share2, Users, AlertCircle, Check, Copy, Globe2, Loader2, Play, RotateCcw, X, Home, Menu } from 'lucide-react';
+import { History, Share2, Check, Copy, Globe2, Loader2, Play, X, Home, Menu } from 'lucide-react';
 import { RevisionHistoryPanel } from './panels/RevisionHistoryPanel';
 import { EditorTutorial } from './components/EditorTutorial';
 import { validateBoard } from './utils/boardValidation';
@@ -335,6 +335,8 @@ export default function Editor() {
           )}
         </div>
 
+        <EditorToolbar />
+
         <div className="flex-1 relative overflow-hidden">
           <Canvas />
           
@@ -346,7 +348,7 @@ export default function Editor() {
                 exit={{ x: '100%' }}
                 className="fixed md:absolute right-0 top-0 bottom-0 z-[35] w-full md:w-80"
               >
-                <NodeConfigPanel onClose={() => useEditorStore.getState().setNodes(nodes.map(n => ({...n, selected: false})))} />
+                <NodeConfigPanel onClose={() => useEditorStore.setState({ nodes: nodes.map(n => ({...n, selected: false})) })} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -512,6 +514,25 @@ export default function Editor() {
               boardId={currentBoardId} 
               onClose={() => setShowRevisions(false)} 
             />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {draftAvailable && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-auto">
+              <GlassCard className="p-8 text-center max-w-sm">
+                <h2 className="text-xl font-bold text-slate-800 mb-2">下書きが見つかりました</h2>
+                <p className="text-sm text-slate-500 mb-6">前回の編集内容（未保存）を復元しますか？</p>
+                <div className="flex gap-3">
+                  <button onClick={handleRestoreDraft} className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all">
+                    復元する
+                  </button>
+                  <button onClick={handleDiscardDraft} className="flex-1 py-3 bg-white text-slate-700 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition-colors">
+                    破棄する
+                  </button>
+                </div>
+              </GlassCard>
+            </motion.div>
           )}
         </AnimatePresence>
 
