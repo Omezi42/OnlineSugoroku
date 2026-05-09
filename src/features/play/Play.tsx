@@ -22,6 +22,7 @@ import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { BoardRuleModal } from './components/BoardRuleModal';
 import { AudioMixer } from './components/AudioMixer';
+import { BridgeEdge } from './components/BridgeEdge';
 import { ToastNotification, type ToastData } from '../../components/ui/ToastNotification';
 import { useToast } from '../../hooks/useToast';
 import { useSoundSettings } from '../../hooks/useSoundSettings';
@@ -34,6 +35,10 @@ import {
 
 const nodeTypes: Record<string, any> = {
   custom: CustomNode,
+};
+
+const edgeTypes = {
+  bridge: BridgeEdge,
 };
 
 function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
@@ -245,9 +250,10 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     if (!boardData) return [];
     return boardData.edges.map(e => ({
       ...e,
-      style: { stroke: '#a855f7', strokeWidth: 4, strokeLinecap: 'round' as const, ...e.style },
-      animated: true,
-      markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#a855f7' }
+      type: 'bridge',
+      style: { stroke: '#a855f7', ...e.style },
+      animated: false,
+      markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: '#6b21a8' }
     }));
   }, [boardData]);
 
@@ -694,6 +700,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
           nodes={nodesWithPlayers}
           edges={edgesWithStyles}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={true}

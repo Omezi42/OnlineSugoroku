@@ -22,6 +22,76 @@ const actionLabels: Record<ActionType, string> = {
   minigame: '🎮 ミニゲーム',
 };
 
+// サブアクション（ミニゲームの勝利時・敗北時など）を編集するためのコンポーネント
+const SubActionEditor = ({ 
+  actions, 
+  onUpdate, 
+  label,
+  nodeId 
+}: { 
+  actions: Action[], 
+  onUpdate: (actions: Action[]) => void, 
+  label: string,
+  nodeId: string
+}) => {
+  const [showPicker, setShowPicker] = useState(false);
+
+  const handleAdd = (type: ActionType) => {
+    const newAction = createDefaultAction(type);
+    onUpdate([...actions, newAction]);
+    setShowPicker(false);
+  };
+
+  const handleItemUpdate = (index: number, updated: Action) => {
+    const newActions = [...actions];
+    newActions[index] = updated;
+    onUpdate(newActions);
+  };
+
+  const handleRemove = (index: number) => {
+    onUpdate(actions.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="mt-2 pl-3 border-l-2 border-purple-200 space-y-2">
+      <div className="text-[10px] font-bold text-purple-400 uppercase tracking-wider">{label}</div>
+      {actions.map((action, idx) => (
+        <ActionEditorItem
+          key={idx}
+          action={action}
+          index={idx}
+          onUpdate={(updated) => handleItemUpdate(idx, updated)}
+          onRemove={() => handleRemove(idx)}
+        />
+      ))}
+      
+      {showPicker ? (
+        <div className="space-y-1 p-2 border border-purple-100 rounded-lg bg-purple-50/50">
+          {(Object.keys(actionLabels) as ActionType[]).filter(t => t !== 'minigame').map((type) => (
+            <button
+              key={type}
+              onClick={() => handleAdd(type)}
+              className="w-full text-left p-1.5 text-[10px] rounded hover:bg-white transition-colors text-slate-700"
+            >
+              {actionLabels[type]}
+            </button>
+          ))}
+          <button onClick={() => setShowPicker(false)} className="w-full text-center p-1 text-[10px] text-slate-400">
+            キャンセル
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowPicker(true)}
+          className="w-full py-1.5 border border-dashed border-purple-200 text-purple-500 rounded-lg text-[10px] font-medium hover:bg-purple-50"
+        >
+          + {label}アクションを追加
+        </button>
+      )}
+    </div>
+  );
+};
+
 interface ActionEditorItemProps {
   action: Action;
   index: number;
@@ -277,15 +347,61 @@ const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps)
           )}
 
           {action.type === 'minigame' && (
-            <select
-              className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
-              value={(action as MinigameAction).gameType}
-              onChange={(e) => onUpdate({ ...action, gameType: e.target.value as MinigameAction['gameType'] } as MinigameAction)}
-            >
-              <option value="janken">じゃんけん</option>
-              <option value="highlow">ハイ＆ロー</option>
-              <option value="chouhan">丁半</option>
-            </select>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-500 font-bold block mb-1">ゲームの種類</label>
+                <select
+                  className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                  value={(action as MinigameAction).gameType}
+                  onChange={(e) => onUpdate({ ...action, gameType: e.target.value as MinigameAction['gameType'] } as MinigameAction)}
+                >
+                  <option value="janken">じゃんけん</option>
+                  <option value="highlow">ハイ＆ロー</option>
+                  <option value="chouhan">丁半</option>
+                </select>
+              </div>
+
+              <div className="space-y-2 p-2 bg-slate-50/50 rounded-xl border border-slate-100">
+                <label className="text-xs text-slate-500 font-bold block">分岐設定（勝利時/敗北時）</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-green-600 font-bold block mb-1">勝利時に進む線</label>
+                    <select
+                      className="w-full p-1.5 text-[10px] rounded-lg border border-slate-200 bg-white"
+                      value={(action as MinigameAction).winEdgeId || ''}
+                      onChange={(e) => onUpdate({ ...action, winEdgeId: e.target.value } as MinigameAction)}
+                    >
+                      <option value="">未指定</option>
+                      {outgoingEdges.map(edge => <option key={edge.id} value={edge.id}>{edgeLabel(edge.id)}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-red-600 font-bold block mb-1">敗北時に進む線</label>
+                    <select
+                      className="w-full p-1.5 text-[10px] rounded-lg border border-slate-200 bg-white"
+                      value={(action as MinigameAction).loseEdgeId || ''}
+                      onChange={(e) => onUpdate({ ...action, loseEdgeId: e.target.value } as MinigameAction)}
+                    >
+                      <option value="">未指定</option>
+                      {outgoingEdges.map(edge => <option key={edge.id} value={edge.id}>{edgeLabel(edge.id)}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <SubActionEditor
+                label="勝利時"
+                nodeId={currentNode?.id || ''}
+                actions={(action as MinigameAction).winActions || []}
+                onUpdate={(winActions) => onUpdate({ ...action, winActions } as MinigameAction)}
+              />
+              <SubActionEditor
+                label="敗北時"
+                nodeId={currentNode?.id || ''}
+                actions={(action as MinigameAction).loseActions || []}
+                onUpdate={(loseActions) => onUpdate({ ...action, loseActions } as MinigameAction)}
+              />
+            </div>
           )}
 
           {(action.type === 'diceMove' || action.type === 'goalBonus') && (

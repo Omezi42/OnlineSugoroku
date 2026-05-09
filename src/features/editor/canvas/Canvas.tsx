@@ -5,10 +5,15 @@ import '@xyflow/react/dist/style.css';
 
 import { useEditorStore } from '../store';
 import { CustomNode } from './CustomNode';
+import { ButtonEdge } from './ButtonEdge';
 import type { NodeType, NodeSize } from '../../../types/board';
 
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
+};
+
+const edgeTypes = {
+  button: ButtonEdge,
 };
 
 export const Canvas = () => {
@@ -67,6 +72,7 @@ export const Canvas = () => {
         nodeTypes={nodeTypes}
         onDragOver={onDragOver}
         onDrop={onDrop}
+        edgeTypes={edgeTypes}
         fitView
         snapToGrid={snapToGrid}
         snapGrid={[gridSize, gridSize]}
@@ -74,6 +80,7 @@ export const Canvas = () => {
         multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
         connectionLineStyle={{ stroke: '#a855f7', strokeWidth: 3 }}
         defaultEdgeOptions={{
+          type: 'button',
           style: { stroke: '#a855f7', strokeWidth: 4, strokeLinecap: 'round' },
           animated: true,
           markerEnd: {

@@ -1,8 +1,9 @@
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { NodeData } from '../../../types/board';
-import { PlayerIcon } from '../../../components/ui/PlayerIcon';
 import { cn } from '../../../lib/cn';
+import { PlayerIcon } from '../../../components/ui/PlayerIcon';
+import { getContrastColor } from '../../../utils/color';
 
 const typeColors: Record<string, string> = {
   start: 'bg-gradient-to-br from-yellow-400 to-yellow-600',
@@ -35,6 +36,15 @@ const handleClass = 'w-5 h-5 !bg-purple-500 border-2 !border-white hover:!bg-pin
 
 export const CustomNode = ({ data, selected }: { data: NodeData, selected?: boolean }) => {
   const players = data.playersOnNode || [];
+
+  // 視認性のための文字色判定
+  const textColor = data.color 
+    ? getContrastColor(data.color) 
+    : data.nodeType === 'start' ? 'text-slate-900' : 'text-white';
+  
+  const labelShadow = textColor === 'text-white' 
+    ? 'drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)]' 
+    : 'drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]';
 
   if (data.nodeType === 'area') {
     return (
@@ -72,9 +82,10 @@ export const CustomNode = ({ data, selected }: { data: NodeData, selected?: bool
   return (
     <div
       className={cn(
-        'relative flex flex-col items-center justify-center rounded-2xl text-white shadow-lg transition-transform',
+        'relative flex flex-col items-center justify-center rounded-2xl shadow-lg transition-transform',
         typeColors[data.nodeType],
         sizeClasses[data.size || 'medium'],
+        textColor,
         selected && 'ring-4 ring-purple-400 ring-offset-2',
         data.isStop && !selected && 'ring-4 ring-orange-500 ring-offset-2'
       )}
@@ -95,7 +106,7 @@ export const CustomNode = ({ data, selected }: { data: NodeData, selected?: bool
       </div>
 
       {/* マスのタイトル */}
-      <div className="text-center font-bold px-2 break-words max-w-full z-10 drop-shadow-md">
+      <div className={cn("text-center font-bold px-2 break-words max-w-full z-10", labelShadow)}>
         {data.label}
       </div>
 

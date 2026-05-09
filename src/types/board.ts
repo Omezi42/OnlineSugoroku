@@ -101,6 +101,8 @@ export interface MinigameAction extends BaseAction {
   gameType: 'highlow' | 'janken' | 'chouhan';
   winActions: Action[];
   loseActions: Action[];
+  winEdgeId?: string;
+  loseEdgeId?: string;
 }
 
 export type Action =
