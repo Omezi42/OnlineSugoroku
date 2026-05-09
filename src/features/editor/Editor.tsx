@@ -9,7 +9,7 @@ import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
 import { canEditBoard, loadBoard, saveBoard, subscribeToBoard, saveRevision } from '../../services/boardService';
 import { GlassCard } from '../../components/ui/GlassCard';
-import { History, Share2, Check, Copy, Globe2, Loader2, Play, X, Home, Menu, Settings } from 'lucide-react';
+import { History, Share2, Check, Copy, Globe2, Loader2, Play, X, Home, Menu, Settings, Sparkles } from 'lucide-react';
 import { RevisionHistoryPanel } from './panels/RevisionHistoryPanel';
 import { BoardSettingsPanel } from './panels/BoardSettingsPanel';
 import { EditorTutorial } from './components/EditorTutorial';

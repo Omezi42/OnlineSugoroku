@@ -160,10 +160,10 @@ const createTemplate = (template: TemplateType): Pick<HistorySnapshot, 'nodes' |
       { label: '豪華客船', type: 'plus', actions: [{ type: 'paramChange', paramId: 'money', amount: 3000 }] }, // win route target
       { label: 'ショップ', type: 'stop', actions: [{ type: 'paramChange', paramId: 'money', amount: -1000 }, { type: 'moveN', amount: 5 }] },
       { label: '落とし穴', type: 'minus', actions: [{ type: 'backN', amount: 3 }] },
-      { label: 'ワープ入口', type: 'plus', actions: [{ type: 'teleport', targetNodeId: 'party-warp-exit' }] },
-      { label: 'ハイ＆ロー', type: 'stop', actions: [{ type: 'minigame', gameType: 'highlow', winActions: [{ type: 'paramChange', paramId: 'money', amount: 3000 }] }] },
+      { label: 'ワープ入口', type: 'plus', actions: [{ type: 'warp', targetNodeId: 'party-warp-exit' }] },
+      { label: 'ハイ＆ロー', type: 'stop', actions: [{ type: 'minigame', gameType: 'highlow', winActions: [{ type: 'paramChange', paramId: 'money', amount: 3000 }], loseActions: [] }] },
       { label: '給料日', type: 'plus', actions: [{ type: 'paramChange', paramId: 'money', amount: 1500 }] },
-      { label: 'ふりだしへ', type: 'minus', actions: [{ type: 'teleport', targetNodeId: 'party-0' }] },
+      { label: 'ふりだしへ', type: 'minus', actions: [{ type: 'warp', targetNodeId: 'party-0' }] },
       { label: 'ラッキー', type: 'plus', actions: [{ type: 'diceParam', paramId: 'money', multiplier: 500 }] },
       { label: '関所', type: 'stop', actions: [{ type: 'conditionBranch', paramId: 'money', operator: '>=', value: 3000, trueEdgeId: 'party-pass', falseEdgeId: 'party-fail' }] },
       { label: '最終コーナー', type: 'normal' },
@@ -259,11 +259,11 @@ const createTemplate = (template: TemplateType): Pick<HistorySnapshot, 'nodes' |
 
         if (isStart) { type = 'start'; label = 'スタート'; }
         else if (isGoal) { type = 'goal'; label = 'ゴール'; actions = [{ type: 'goalBonus' }]; }
-        else if (i % 12 === 0) { type = 'stop'; label = 'ミニゲーム'; actions = [{ type: 'minigame', gameType: 'janken' }]; }
+        else if (i % 12 === 0) { type = 'stop'; label = 'ミニゲーム'; actions = [{ type: 'minigame', gameType: 'janken', winActions: [], loseActions: [] }]; }
         else if (i % 7 === 0) { type = 'plus'; label = 'ボーナス'; actions = [{ type: 'paramChange', paramId: 'money', amount: 1000 }]; }
         else if (i % 8 === 0) { type = 'minus'; label = 'トラブル'; actions = [{ type: 'paramChange', paramId: 'money', amount: -500 }]; }
-        else if (i === 15) { type = 'plus'; label = 'ワープ'; actions = [{ type: 'teleport', targetNodeId: 'long-35' }]; }
-        else if (i === 45) { type = 'minus'; label = '落とし穴'; actions = [{ type: 'teleport', targetNodeId: 'long-30' }]; }
+        else if (i === 15) { type = 'plus'; label = 'ワープ'; actions = [{ type: 'warp', targetNodeId: 'long-35' }]; }
+        else if (i === 45) { type = 'minus'; label = '落とし穴'; actions = [{ type: 'warp', targetNodeId: 'long-30' }]; }
 
         nodes.push(createNode(`long-${i}`, label, type, 150 + col * 200, 150 + r * 180, '', actions));
         if (i > 0) addEdgeHelper(`long-${i-1}`, `long-${i}`);
