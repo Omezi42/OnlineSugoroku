@@ -11,7 +11,6 @@ export interface Player {
   restTurns: number; // 休みターン数（0なら行動可能）
   rank?: number; // ゴールした順位
   hasGoal: boolean; // ゴール済みかどうか
-  lastActive?: number; // 最終アクティブ時間 (生存確認用)
 }
 
 // ゲームのステータス
