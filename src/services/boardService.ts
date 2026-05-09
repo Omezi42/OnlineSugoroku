@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, where, limit, serverTimestamp, increment } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, where, limit, serverTimestamp, increment, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Node, Edge } from '@xyflow/react';
 import type { BoardSettings, NodeData } from '../types/board';
@@ -54,6 +54,10 @@ export const saveBoard = async (boardData: Omit<BoardData, 'createdAt' | 'update
   const removeUndefined = (obj: unknown): unknown => {
     if (Array.isArray(obj)) return obj.map(removeUndefined);
     if (obj !== null && typeof obj === 'object') {
+      // Firestoreの特殊オブジェクト（FieldValueなど）はそのまま返す
+      if (obj.constructor && obj.constructor.name === 'FieldValue') return obj;
+      if ('_methodName' in obj) return obj; // Firestoreの内部マーカー的なものへの対策
+      
       return Object.fromEntries(
         Object.entries(obj)
           .filter(([, v]) => v !== undefined)
@@ -71,9 +75,14 @@ export const saveBoard = async (boardData: Omit<BoardData, 'createdAt' | 'update
 
   if (isNew) {
     payload.createdAt = serverTimestamp();
+    await setDoc(docRef, payload);
+  } else {
+    // 既存のドキュメントの場合は updateDoc を使用する
+    // これにより、提供されたフィールド（nodes, edges, settingsなど）が完全に置き換わり、
+    // 且つ管理外のフィールド（playCount, likeCountなど）が保持される
+    const { createdAt: _unused, ...updatePayload } = payload;
+    await updateDoc(docRef, updatePayload);
   }
-
-  await setDoc(docRef, payload, { merge: true });
   return boardId;
 };
 

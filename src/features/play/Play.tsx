@@ -398,7 +398,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       }
 
       // 移動完了 → マスのアクション処理へ
-      await processLanding(player, moveResult.finalNodeId, logs);
+      await processLanding(moveResult.finalNodeId, player);
     } finally {
       setIsProcessing(false);
     }
@@ -413,119 +413,141 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
     setIsProcessing(true);
     try {
-      await processLanding(player, targetNodeId, logs);
+      await processLanding(targetNodeId, player);
     } finally {
       setIsProcessing(false);
     }
   }, [gameState, boardData, roomId, isProcessing]);
 
   // マスに着地した時の処理
-  const processLanding = async (player: Player, nodeId: string, logs: any[]) => {
+  const processLanding = useCallback(async (nodeId: string, player: Player) => {
     if (!gameState || !boardData) return;
-    let updatedPlayer = { ...player, position: nodeId, params: { ...player.params } };
 
-    // ゴール判定
-    if (checkGoal(nodeId, boardData.nodes)) {
-      const goalOrder = Object.values(gameState.players).filter(p => p.hasGoal).length + 1;
-      updatedPlayer.hasGoal = true;
-      updatedPlayer.rank = goalOrder;
-      logs.push(createLog(`🏁 ${player.name} が ${goalOrder}位でゴール！！`, 'action'));
-      playSe('goal');
-    }
+    let updatedPlayer = { ...player, position: nodeId };
+    let currentNodeId = nodeId;
+    let logs = [...gameState.logs];
+    let safety = 0;
 
-    // マスのアクション処理
-    const node = getNodeById(nodeId, boardData.nodes);
-    if (node) {
+    // 連続着地（ワープや分岐）を処理するためのループ
+    while (safety < 10) {
+      safety++;
+      const node = getNodeById(currentNodeId, boardData.nodes);
+      if (!node) break;
+
       setSelectedNodeData(node.data);
-    }
-    
-    if (node?.data.actions && node.data.actions.length > 0) {
-      for (const action of node.data.actions) {
-        const result = processAction(action, updatedPlayer, gameState, boardData.nodes, boardData.edges, boardData.settings);
-        updatedPlayer = result.updatedPlayer;
-        logs.push(...result.logs);
 
-        // アクション種類に応じたSE
-        if (action.type === 'paramChange' && action.amount > 0) playSe('coin');
-        else if (action.type === 'paramChange' && action.amount < 0) playSe('lose');
-        else if (action.type === 'minigame' || action.type === 'steal') playSe('event');
-        else if (action.type === 'warp') playSe('event');
+      // ゴール判定
+      if (node.data.nodeType === 'goal' && !updatedPlayer.hasGoal) {
+        const goalOrder = Object.values(gameState.players).filter(p => p.hasGoal).length + 1;
+        updatedPlayer.hasGoal = true;
+        updatedPlayer.rank = goalOrder;
+        logs.push(createLog(`🏁 ${updatedPlayer.name} が ${goalOrder}位でゴール！！`, 'action'));
+        playSe('goal');
+        break; 
+      }
 
-        // ペンディング操作（ミニゲームやスティール）が必要な場合
-        if (result.pendingInteraction) {
-          await updateGameState(roomId, {
-            logs,
-            [`players.${updatedPlayer.id}`]: updatedPlayer,
-            pendingInteraction: result.pendingInteraction,
-          } as any);
-          return;
-        }
+      let moved = false;
 
-        // ワープ
-        if (result.warpTarget) {
-          updatedPlayer.position = result.warpTarget;
-        }
+      if (node.data.actions && node.data.actions.length > 0) {
+        for (const action of node.data.actions) {
+          const result = processAction(action, updatedPlayer, gameState, boardData.nodes, boardData.edges, boardData.settings);
+          updatedPlayer = result.updatedPlayer;
+          logs.push(...result.logs);
 
-        // 条件分岐・ランダム分岐で選ばれた専用ルート
-        if (result.branchTarget) {
-          updatedPlayer.position = result.branchTarget;
-        }
+          // アクション種類に応じたSE
+          if (action.type === 'paramChange' && action.amount > 0) playSe('coin');
+          else if (action.type === 'paramChange' && action.amount < 0) playSe('lose');
+          else if (action.type === 'minigame' || action.type === 'steal') playSe('event');
+          else if (action.type === 'warp') playSe('event');
 
-        // 追加移動
-        if (result.additionalMoveSteps) {
-          if (result.additionalMoveDirection === 'back') {
-            const backPath: string[] = [];
-            let currentPosForBack = updatedPlayer.position;
-            for(let i=0; i<result.additionalMoveSteps; i++) {
-              const prev = movePlayerBack(currentPosForBack, 1, boardData.nodes, boardData.edges);
-              if (prev === currentPosForBack) break;
-              backPath.push(prev);
-              currentPosForBack = prev;
+          // ペンディング操作（ミニゲームやスティール）が必要な場合
+          if (result.pendingInteraction) {
+            await updateGameState(roomId, {
+              logs,
+              [`players.${updatedPlayer.id}`]: updatedPlayer,
+              pendingInteraction: result.pendingInteraction,
+            } as any);
+            return;
+          }
+
+          // ワープ
+          if (result.warpTarget) {
+            currentNodeId = result.warpTarget;
+            updatedPlayer.position = currentNodeId;
+            moved = true;
+            break;
+          }
+
+          // 条件分岐・ランダム分岐で選ばれた専用ルート
+          if (result.branchTarget) {
+            currentNodeId = result.branchTarget;
+            updatedPlayer.position = currentNodeId;
+            moved = true;
+            break;
+          }
+
+          // 追加移動
+          if (result.additionalMoveSteps) {
+            if (result.additionalMoveDirection === 'back') {
+              const backPath: string[] = [];
+              let currentPosForBack = updatedPlayer.position;
+              for(let i=0; i<result.additionalMoveSteps; i++) {
+                const prev = movePlayerBack(currentPosForBack, 1, boardData.nodes, boardData.edges);
+                if (prev === currentPosForBack) break;
+                backPath.push(prev);
+                currentPosForBack = prev;
+              }
+              await animateMove(updatedPlayer.id, backPath);
+              updatedPlayer.position = currentPosForBack;
+            } else {
+              const additionalMove = movePlayer(updatedPlayer.position, result.additionalMoveSteps, boardData.nodes, boardData.edges);
+              await animateMove(updatedPlayer.id, additionalMove.passedNodeIds);
+
+              if (additionalMove.needsBranchChoice && additionalMove.branchOptions) {
+                await updateGameState(roomId, {
+                  logs,
+                  [`players.${updatedPlayer.id}`]: updatedPlayer,
+                  pendingInteraction: {
+                    playerId: updatedPlayer.id,
+                    type: 'branch',
+                    nodeId: additionalMove.finalNodeId,
+                    branchOptions: additionalMove.branchOptions,
+                  },
+                } as any);
+                return;
+              }
+              updatedPlayer.position = additionalMove.finalNodeId;
             }
-            await animateMove(updatedPlayer.id, backPath);
-            updatedPlayer.position = currentPosForBack;
-          } else {
-            const additionalMove = movePlayer(updatedPlayer.position, result.additionalMoveSteps, boardData.nodes, boardData.edges);
-            await animateMove(updatedPlayer.id, additionalMove.passedNodeIds);
-
-            if (additionalMove.needsBranchChoice && additionalMove.branchOptions) {
-              await updateGameState(roomId, {
-                logs,
-                [`players.${updatedPlayer.id}`]: updatedPlayer,
-                pendingInteraction: {
-                  playerId: updatedPlayer.id,
-                  type: 'branch',
-                  nodeId: additionalMove.finalNodeId,
-                  branchOptions: additionalMove.branchOptions,
-                },
-              } as any);
-              return;
-            }
-            updatedPlayer.position = additionalMove.finalNodeId;
+            currentNodeId = updatedPlayer.position;
+            moved = true;
+            break;
           }
         }
       }
+
+      if (!moved) break;
     }
 
-    // アクションによる追加移動・ワープ後にゴールへ到達した場合も判定する
+    // 最終的なゴール判定（移動後にゴールに着いた場合）
     if (!updatedPlayer.hasGoal && checkGoal(updatedPlayer.position, boardData.nodes)) {
       const goalOrder = Object.values(gameState.players).filter(p => p.hasGoal).length + 1;
       updatedPlayer.hasGoal = true;
       updatedPlayer.rank = goalOrder;
-      logs.push(createLog(`🏁 ${player.name} が ${goalOrder}位でゴール！！`, 'action'));
+      logs.push(createLog(`🏁 ${updatedPlayer.name} が ${goalOrder}位でゴール！！`, 'action'));
+      playSe('goal');
     }
 
     // ターン終了 → 次のプレイヤーへ
     await advanceTurn(updatedPlayer, logs);
-  };
+  }, [gameState, boardData, roomId, playSe, animateMove, advanceTurn]);
 
   // ターンを進める
-  const advanceTurn = async (updatedPlayer: Player, logs: any[]) => {
+  const advanceTurn = useCallback(async (updatedPlayer: Player, logs: any[]) => {
     if (!gameState || !boardData) return;
 
     const updatedPlayers = { ...gameState.players, [updatedPlayer.id]: updatedPlayer };
 
-    // ゲーム終了判定（1人プレイでもゴール=終了）
+    // ゲーム終了判定
     const allGoaled = Object.values(updatedPlayers).every(p => p.hasGoal);
     if (allGoaled) {
       playSe('goal');
@@ -535,15 +557,14 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
         status: 'finished',
         pendingInteraction: null,
       } as any);
-      // 即座にリザルトボタンを表示（Firestore同期待ちを回避）
       setShowResultButton(true);
       return;
     }
 
-    // 次のターンインデックスを計算（休み/ゴール済みをスキップ）
+    // 次のターンインデックスを計算
     let nextIdx = (gameState.currentTurnIndex + 1) % gameState.playerOrder.length;
     let safety = 0;
-    const restUpdates: Record<string, any> = {}; // 休みターン消費をまとめる
+    const restUpdates: Record<string, any> = {};
 
     while (safety < gameState.playerOrder.length) {
       const nextPid = gameState.playerOrder[nextIdx];
@@ -573,7 +594,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       pendingInteraction: null,
       ...restUpdates,
     } as any);
-  };
+  }, [gameState, boardData, roomId, playSe]);
 
   // ミニゲーム結果処理
   const handleMinigameResult = useCallback(async (won: boolean) => {
@@ -587,17 +608,37 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
     logs.push(createLog(won ? `🎉 ${player.name} がミニゲームに勝利！` : `😢 ${player.name} がミニゲームに敗北...`, 'action'));
 
+    // 勝敗に応じたサブアクションの実行
     const subActions = won ? action.winActions : action.loseActions;
     if (subActions) {
       for (const subAction of subActions) {
         const result = processAction(subAction, updatedPlayer, gameState, boardData.nodes, boardData.edges, boardData.settings);
         updatedPlayer = result.updatedPlayer;
         logs.push(...result.logs);
+        // サブアクションでさらに移動が発生する場合の処理は複雑になるため、ここでは簡易的に位置更新のみ
+        if (result.warpTarget) updatedPlayer.position = result.warpTarget;
+        if (result.branchTarget) updatedPlayer.position = result.branchTarget;
       }
     }
 
-    await advanceTurn(updatedPlayer, logs);
-  }, [gameState, boardData, roomId]);
+    // 勝敗に応じた専用分岐（winEdgeId / loseEdgeId）の処理
+    const branchEdgeId = won ? action.winEdgeId : action.loseEdgeId;
+    if (branchEdgeId) {
+      const edge = boardData.edges.find(e => e.id === branchEdgeId);
+      if (edge) {
+        const targetLabel = getNodeById(edge.target, boardData.nodes)?.data.label || edge.target;
+        logs.push(createLog(`🔀 ${won ? '勝利' : '敗北'}ルートで「${targetLabel}」へ移動します`, 'move'));
+        updatedPlayer.position = edge.target;
+      }
+    }
+
+    // 移動が発生した場合は再着地処理を行う
+    if (updatedPlayer.position !== player.position) {
+      await processLanding(updatedPlayer.position, updatedPlayer);
+    } else {
+      await advanceTurn(updatedPlayer, logs);
+    }
+  }, [gameState, boardData, roomId, processLanding, advanceTurn]);
 
   // スティールターゲット選択処理
   const handleStealSelect = useCallback(async (targetPlayerId: string) => {

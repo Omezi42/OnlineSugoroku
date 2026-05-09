@@ -53,7 +53,20 @@ export function movePlayer(
     }
 
     if (outgoing.length > 1) {
-      // 分岐 → プレイヤーに選択させる
+      // プレイヤーによる手動分岐。ただし、自動分岐アクションがある場合はそちらを優先するためここでは停止する
+      const node = getNodeById(nodeId, nodes);
+      const hasAutoBranch = node?.data.actions?.some(a => a.type === 'conditionBranch' || a.type === 'randomBranch');
+
+      if (hasAutoBranch) {
+        return {
+          finalNodeId: nodeId,
+          passedNodeIds: passed,
+          remainingSteps: remaining,
+          needsBranchChoice: false,
+        };
+      }
+
+      // 手動分岐の選択肢を提示
       return {
         finalNodeId: nodeId,
         passedNodeIds: passed,
