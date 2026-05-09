@@ -26,13 +26,11 @@ const actionLabels: Record<ActionType, string> = {
 const SubActionEditor = ({ 
   actions, 
   onUpdate, 
-  label,
-  nodeId 
+  label
 }: { 
   actions: Action[], 
   onUpdate: (actions: Action[]) => void, 
-  label: string,
-  nodeId: string
+  label: string
 }) => {
   const [showPicker, setShowPicker] = useState(false);
 
@@ -391,13 +389,11 @@ const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps)
 
               <SubActionEditor
                 label="勝利時"
-                nodeId={currentNode?.id || ''}
                 actions={(action as MinigameAction).winActions || []}
                 onUpdate={(winActions) => onUpdate({ ...action, winActions } as MinigameAction)}
               />
               <SubActionEditor
                 label="敗北時"
-                nodeId={currentNode?.id || ''}
                 actions={(action as MinigameAction).loseActions || []}
                 onUpdate={(loseActions) => onUpdate({ ...action, loseActions } as MinigameAction)}
               />

@@ -14,13 +14,10 @@ export function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): Validatio
   const playableNodes = nodes.filter((node) => node.data.nodeType !== 'area');
   const nodeIds = new Set(playableNodes.map((node) => node.id));
   const edgeIds = new Set(edges.map((edge) => edge.id));
-  const outgoing = new Map<string, string[]>();
 
   edges.forEach((edge) => {
     if (!nodeIds.has(edge.source)) errors.push(`存在しないマスからルートが伸びています: ${edge.source}`);
     if (!nodeIds.has(edge.target)) errors.push(`存在しないマスへルートが接続されています: ${edge.target}`);
-    if (!outgoing.has(edge.source)) outgoing.set(edge.source, []);
-    outgoing.get(edge.source)?.push(edge.target);
   });
 
   const duplicatedLabels = playableNodes

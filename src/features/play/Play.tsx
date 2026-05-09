@@ -435,6 +435,10 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
     // マスのアクション処理
     const node = getNodeById(nodeId, boardData.nodes);
+    if (node) {
+      setSelectedNodeData(node.data);
+    }
+    
     if (node?.data.actions && node.data.actions.length > 0) {
       for (const action of node.data.actions) {
         const result = processAction(action, updatedPlayer, gameState, boardData.nodes, boardData.edges, boardData.settings);
