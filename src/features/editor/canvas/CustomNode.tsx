@@ -115,7 +115,7 @@ export const CustomNode = ({ data, selected }: { data: NodeData, selected?: bool
                 initial={{ scale: 0, y: 10 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0, y: -10 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 20, delay: idx * 0.05 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30, delay: idx * 0.05 }}
                 className={cn(
                   'w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-lg border-2',
                   p.isMe ? 'border-yellow-400 bg-yellow-50/90' : 'border-white bg-white/90'

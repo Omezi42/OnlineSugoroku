@@ -152,19 +152,19 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   useEffect(() => {
     if (!gameState || !localPlayerId || gameState.status === 'finished') return;
 
-    // 自分のハートビートを更新 (5秒おき)
+    // 自分のハートビートを更新 (15秒おきに緩和：通信量節約)
     const heartbeatInterval = setInterval(() => {
       updatePlayerHeartbeat(roomId, localPlayerId).catch(console.error);
-    }, 5000);
+    }, 15000);
 
-    // ホストの生存確認 (10秒おき)
+    // ホストの生存確認 (20秒おきに緩和)
     const migrationInterval = setInterval(() => {
       const players = Object.values(gameState.players);
       const currentHost = players.find(p => p.isHost);
       const now = Date.now();
       
-      // ホストが15秒以上不在なら委譲を検討
-      if (!currentHost || (now - currentHost.lastActive > 15000)) {
+      // ホストが30秒以上不在なら委譲を検討
+      if (!currentHost || (now - currentHost.lastActive > 30000)) {
         // 次のホスト候補を選出 (プレイヤーID順で一番若い生存プレイヤー)
         const activePlayers = players
           .filter(p => now - p.lastActive < 15000)
@@ -227,7 +227,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     for (const stepNodeId of path) {
       setAnimatingPlayer({ id: playerId, position: stepNodeId });
       playSe('step');
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 250)); // 速度を上げてサクサク動かす
     }
     setAnimatingPlayer(null);
   };
