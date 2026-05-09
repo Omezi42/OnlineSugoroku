@@ -1,8 +1,7 @@
 import type { NodeType } from '../../../types/board';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { BoardSettingsPanel } from './BoardSettingsPanel';
-import { useEditorStore } from '../store';
-import { Layers, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
   const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {

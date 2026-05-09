@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useEditorStore } from '../store';
 import { GlassCard } from '../../../components/ui/GlassCard';
-import type { DiceType, WinConditionType, ParameterDef } from '../../../types/board';
+import type { DiceType, ParameterDef } from '../../../types/board';
 import { Settings, X, Plus, Trash2 } from 'lucide-react';
 
 export const BoardSettingsPanel = () => {
