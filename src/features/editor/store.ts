@@ -140,113 +140,160 @@ const layoutNodes = (nodes: Node<NodeData>[], mode: LayoutMode): Node<NodeData>[
 };
 
 const createTemplate = (template: TemplateType): Pick<HistorySnapshot, 'nodes' | 'edges'> => {
+  const nodes: Node<NodeData>[] = [];
+  const edges: Edge[] = [];
+  const addEdgeHelper = (source: string, target: string, label?: string, id?: string) => {
+    const edgeId = id || `e-${source}-${target}`;
+    edges.push({ id: edgeId, source, target, label, animated: true, style: { stroke: '#a855f7', strokeWidth: 2 } });
+    return edgeId;
+  };
+
   if (template === 'party') {
-    // パーティー用テンプレ: 12マス、ミニゲームやワープなど楽しい要素たっぷり
-    const nodes = [
-      createNode('tpl-start', 'スタート', 'start', 100, 300),
-      createNode('tpl-1', 'お給料日', 'plus', 350, 300, '1000円ゲット！', [{ type: 'paramChange', paramId: 'money', amount: 1000 }]),
-      createNode('tpl-2', 'カジノ', 'stop', 600, 300, 'ハイ＆ローで一獲千金！', [{ type: 'minigame', gameType: 'highlow', winActions: [{ type: 'paramChange', paramId: 'money', amount: 3000 }], loseActions: [{ type: 'paramChange', paramId: 'money', amount: -500 }] }]),
-      createNode('tpl-3', '落とし穴', 'minus', 850, 300, '500円落とした...', [{ type: 'paramChange', paramId: 'money', amount: -500 }]),
-      createNode('tpl-4', '落雷', 'minus', 1100, 300, '2マス戻される！', [{ type: 'backN', amount: 2 }]),
-      createNode('tpl-5', 'じゃんけん大会', 'stop', 1100, 100, 'じゃんけんで勝負！', [{ type: 'minigame', gameType: 'janken', winActions: [{ type: 'paramChange', paramId: 'money', amount: 2000 }], loseActions: [{ type: 'paramChange', paramId: 'money', amount: -300 }] }]),
-      createNode('tpl-6', '宝箱', 'plus', 850, 100, 'サイコロ×500円ゲット', [{ type: 'diceParam', paramId: 'money', multiplier: 500 }]),
-      createNode('tpl-7', '1回休み', 'minus', 600, 100, 'お昼寝タイム', [{ type: 'rest', turns: 1 }]),
-      createNode('tpl-8', '臨時収入', 'plus', 350, 100, '800円拾った', [{ type: 'paramChange', paramId: 'money', amount: 800 }]),
-      createNode('tpl-9', '丁半勝負', 'stop', 100, 100, '奇数偶数で運試し', [{ type: 'minigame', gameType: 'chouhan', winActions: [{ type: 'paramChange', paramId: 'money', amount: 1500 }], loseActions: [{ type: 'paramChange', paramId: 'money', amount: -700 }] }]),
-      createNode('tpl-10', '最後の直線', 'normal', 100, -100),
-      createNode('tpl-goal', 'ゴール', 'goal', 350, -100, '到着順にボーナス！', [{ type: 'goalBonus' }]),
+    // パーティー: 22マス、賑やかなイベントとループ
+    const partyData = [
+      { label: 'スタート', type: 'start' },
+      { label: 'おこづかい', type: 'plus', actions: [{ type: 'paramChange', paramId: 'money', amount: 500 }] },
+      { label: 'じゃんけん', type: 'stop', actions: [{ type: 'minigame', gameType: 'janken', winActions: [{ type: 'paramChange', paramId: 'money', amount: 2000 }], loseActions: [{ type: 'paramChange', paramId: 'money', amount: -300 }] }] },
+      { label: '1マス戻る', type: 'minus', actions: [{ type: 'backN', amount: 1 }] },
+      { label: '宝くじ', type: 'stop', actions: [{ type: 'randomBranch', probability: 30, successEdgeId: 'party-win', failureEdgeId: 'party-lose' }] },
+      { label: '休息所', type: 'normal' }, // lose route target
+      { label: '豪華客船', type: 'plus', actions: [{ type: 'paramChange', paramId: 'money', amount: 3000 }] }, // win route target
+      { label: 'ショップ', type: 'stop', actions: [{ type: 'paramChange', paramId: 'money', amount: -1000 }, { type: 'moveN', amount: 5 }] },
+      { label: '落とし穴', type: 'minus', actions: [{ type: 'backN', amount: 3 }] },
+      { label: 'ワープ入口', type: 'plus', actions: [{ type: 'teleport', targetNodeId: 'party-warp-exit' }] },
+      { label: 'ハイ＆ロー', type: 'stop', actions: [{ type: 'minigame', gameType: 'highlow', winActions: [{ type: 'paramChange', paramId: 'money', amount: 3000 }] }] },
+      { label: '給料日', type: 'plus', actions: [{ type: 'paramChange', paramId: 'money', amount: 1500 }] },
+      { label: 'ふりだしへ', type: 'minus', actions: [{ type: 'teleport', targetNodeId: 'party-0' }] },
+      { label: 'ラッキー', type: 'plus', actions: [{ type: 'diceParam', paramId: 'money', multiplier: 500 }] },
+      { label: '関所', type: 'stop', actions: [{ type: 'conditionBranch', paramId: 'money', operator: '>=', value: 3000, trueEdgeId: 'party-pass', falseEdgeId: 'party-fail' }] },
+      { label: '最終コーナー', type: 'normal' },
+      { label: 'ゴール', type: 'goal', actions: [{ type: 'goalBonus' }] },
     ];
-    return {
-      nodes,
-      edges: [
-        { id: 'tpl-e-0', source: 'tpl-start', target: 'tpl-1', animated: true },
-        { id: 'tpl-e-1', source: 'tpl-1', target: 'tpl-2', animated: true },
-        { id: 'tpl-e-2', source: 'tpl-2', target: 'tpl-3', animated: true },
-        { id: 'tpl-e-3', source: 'tpl-3', target: 'tpl-4', animated: true },
-        { id: 'tpl-e-4', source: 'tpl-4', target: 'tpl-5', animated: true },
-        { id: 'tpl-e-5', source: 'tpl-5', target: 'tpl-6', animated: true },
-        { id: 'tpl-e-6', source: 'tpl-6', target: 'tpl-7', animated: true },
-        { id: 'tpl-e-7', source: 'tpl-7', target: 'tpl-8', animated: true },
-        { id: 'tpl-e-8', source: 'tpl-8', target: 'tpl-9', animated: true },
-        { id: 'tpl-e-9', source: 'tpl-9', target: 'tpl-10', animated: true },
-        { id: 'tpl-e-10', source: 'tpl-10', target: 'tpl-goal', animated: true },
-      ],
-    };
+
+    // ノード生成 (蛇行)
+    partyData.forEach((nd, i) => {
+      const col = i % 6;
+      const row = Math.floor(i / 6);
+      const x = 150 + (row % 2 === 0 ? col : 5 - col) * 220;
+      const y = 150 + row * 200;
+      nodes.push(createNode(`party-${i}`, nd.label, nd.type as NodeType, x, y, '', (nd as any).actions));
+      
+      // 通常のエッジ接続（分岐マス以外）
+      if (i > 0 && i !== 5 && i !== 6 && i !== 15) {
+        addEdgeHelper(`party-${i-1}`, `party-${i}`);
+      }
+    });
+
+    // 分岐エッジの作成
+    addEdgeHelper('party-4', 'party-6', '当選！', 'party-win');
+    addEdgeHelper('party-4', 'party-5', 'ハズレ', 'party-lose');
+    addEdgeHelper('party-5', 'party-7');
+    addEdgeHelper('party-6', 'party-7');
+    
+    addEdgeHelper('party-14', 'party-16', '合格', 'party-pass');
+    addEdgeHelper('party-14', 'party-15', '不合格', 'party-fail');
+    addEdgeHelper('party-15', 'party-16');
+
+    // 特殊ワープ出口
+    nodes.push(createNode('party-warp-exit', 'ワープ出口', 'plus', 150, 750, 'ショートカット成功！'));
+    addEdgeHelper('party-warp-exit', 'party-13');
+
+    // 背景エリア
+    nodes.push({
+      id: 'party-area', type: 'custom', position: { x: 50, y: 50 },
+      style: { width: 1400, height: 900 }, zIndex: -10,
+      data: { label: 'パーティー会場', nodeType: 'area', areaColor: '#f472b6', areaWidth: 1400, areaHeight: 900 } as any
+    });
+
+    return { nodes, edges };
   }
 
   if (template === 'branch') {
-    // 分岐ルート: 条件分岐2回、ランダム分岐1回の複雑なルート (11マス)
-    const nodes = [
-      createNode('tpl-start', 'スタート', 'start', 100, 260),
-      createNode('tpl-1', 'おこづかい', 'plus', 350, 260, '500円ゲット', [{ type: 'paramChange', paramId: 'money', amount: 500 }]),
-      createNode('tpl-fork1', '運命の分岐', 'stop', 600, 260, '所持金1200以上で上ルートへ', [
-        { type: 'conditionBranch', paramId: 'money', operator: '>=', value: 1200, trueEdgeId: 'tpl-e-fork1-rich', falseEdgeId: 'tpl-e-fork1-poor' },
-      ]),
-      createNode('tpl-rich', 'VIP通り', 'plus', 850, 100, '高級ルートで2000円ゲット', [{ type: 'paramChange', paramId: 'money', amount: 2000 }]),
-      createNode('tpl-poor', '修行の道', 'minus', 850, 420, '苦難の道で500円減...', [{ type: 'paramChange', paramId: 'money', amount: -500 }]),
-      createNode('tpl-merge', '合流地点', 'normal', 1100, 260),
-      createNode('tpl-fork2', 'ランダム分岐', 'stop', 1350, 260, '50%の確率で天国か地獄', [
-        { type: 'randomBranch', probability: 50, successEdgeId: 'tpl-e-fork2-win', failureEdgeId: 'tpl-e-fork2-lose' },
-      ]),
-      createNode('tpl-heaven', '天国マス', 'plus', 1600, 100, 'ラッキー！3000円', [{ type: 'paramChange', paramId: 'money', amount: 3000 }]),
-      createNode('tpl-hell', '地獄マス', 'minus', 1600, 420, 'アンラッキー…1000円減', [{ type: 'paramChange', paramId: 'money', amount: -1000 }]),
-      createNode('tpl-merge2', '最終合流', 'normal', 1850, 260),
-      createNode('tpl-goal', 'ゴール', 'goal', 2100, 260, 'お疲れさまでした！', [{ type: 'goalBonus' }]),
-    ];
-    return {
-      nodes,
-      edges: [
-        { id: 'tpl-e-start', source: 'tpl-start', target: 'tpl-1', animated: true },
-        { id: 'tpl-e-1', source: 'tpl-1', target: 'tpl-fork1', animated: true },
-        { id: 'tpl-e-fork1-rich', source: 'tpl-fork1', target: 'tpl-rich', label: '条件成立', animated: true },
-        { id: 'tpl-e-fork1-poor', source: 'tpl-fork1', target: 'tpl-poor', label: '条件不成立', animated: true },
-        { id: 'tpl-e-rich-merge', source: 'tpl-rich', target: 'tpl-merge', animated: true },
-        { id: 'tpl-e-poor-merge', source: 'tpl-poor', target: 'tpl-merge', animated: true },
-        { id: 'tpl-e-merge-fork2', source: 'tpl-merge', target: 'tpl-fork2', animated: true },
-        { id: 'tpl-e-fork2-win', source: 'tpl-fork2', target: 'tpl-heaven', label: '成功', animated: true },
-        { id: 'tpl-e-fork2-lose', source: 'tpl-fork2', target: 'tpl-hell', label: '失敗', animated: true },
-        { id: 'tpl-e-heaven-merge2', source: 'tpl-heaven', target: 'tpl-merge2', animated: true },
-        { id: 'tpl-e-hell-merge2', source: 'tpl-hell', target: 'tpl-merge2', animated: true },
-        { id: 'tpl-e-merge2-goal', source: 'tpl-merge2', target: 'tpl-goal', animated: true },
-      ],
-    };
+    // 分岐戦略: 3つのルート
+    nodes.push(createNode('b-start', 'スタート', 'start', 100, 300));
+    nodes.push(createNode('b-fork', '運命の選択', 'stop', 350, 300, 'どの道を行く？', [
+      { type: 'randomBranch', probability: 50, successEdgeId: 'e-up', failureEdgeId: 'e-down' }
+    ]));
+
+    // 上ルート: ギャンブル
+    for (let i = 1; i <= 5; i++) {
+      nodes.push(createNode(`b-up-${i}`, `カジノ${i}`, 'stop', 350 + i * 250, 100, 'ハイリスク・ハイリターン', [{ type: 'minigame', gameType: 'chouhan', winActions: [{ type: 'paramChange', paramId: 'money', amount: 2000 }], loseActions: [{ type: 'paramChange', paramId: 'money', amount: -1000 }] }]));
+      if (i === 1) addEdgeHelper('b-fork', 'b-up-1', '天国へ', 'e-up');
+      else addEdgeHelper(`b-up-${i-1}`, `b-up-${i}`);
+    }
+
+    // 下ルート: 罠
+    for (let i = 1; i <= 5; i++) {
+      nodes.push(createNode(`b-down-${i}`, `沼地${i}`, 'minus', 350 + i * 250, 500, '足止めされる', [{ type: 'rest', turns: 1 }]));
+      if (i === 1) addEdgeHelper('b-fork', 'b-down-1', '地獄へ', 'e-down');
+      else addEdgeHelper(`b-down-${i-1}`, `b-down-${i}`);
+    }
+
+    nodes.push(createNode('b-goal', 'ゴール', 'goal', 1800, 300));
+    addEdgeHelper('b-up-5', 'b-goal');
+    addEdgeHelper('b-down-5', 'b-goal');
+
+    nodes.push({
+      id: 'b-area', type: 'custom', position: { x: 50, y: 50 },
+      style: { width: 2000, height: 600 }, zIndex: -10,
+      data: { label: '分岐の迷宮', nodeType: 'area', areaColor: '#6366f1', areaWidth: 2000, areaHeight: 600 } as any
+    });
+
+    return { nodes, edges };
   }
 
-  // simple / long → ハードモード (長い蛇行ルート 15マス)
-  const count = template === 'long' ? 15 : 10;
-  const nodeData: { label: string; type: NodeType; desc: string; actions: NodeData['actions'] }[] = [];
-  for (let i = 0; i < count; i++) {
-    const isStart = i === 0;
-    const isGoal = i === count - 1;
-    if (isStart) { nodeData.push({ label: 'スタート', type: 'start', desc: '', actions: [] }); continue; }
-    if (isGoal) { nodeData.push({ label: 'ゴール', type: 'goal', desc: '', actions: [{ type: 'goalBonus' }] }); continue; }
-    // パターンで配置
-    if (i % 7 === 1) nodeData.push({ label: '給料日', type: 'plus', desc: '1000円ゲット', actions: [{ type: 'paramChange', paramId: 'money', amount: 1000 }] });
-    else if (i % 7 === 2) nodeData.push({ label: '税金', type: 'minus', desc: '500円減', actions: [{ type: 'paramChange', paramId: 'money', amount: -500 }] });
-    else if (i % 7 === 3) nodeData.push({ label: 'ミニゲーム', type: 'stop', desc: 'じゃんけんで勝負', actions: [{ type: 'minigame', gameType: 'janken', winActions: [{ type: 'paramChange', paramId: 'money', amount: 1500 }], loseActions: [{ type: 'paramChange', paramId: 'money', amount: -300 }] }] });
-    else if (i % 7 === 4) nodeData.push({ label: '休憩', type: 'minus', desc: '1回休み', actions: [{ type: 'rest', turns: 1 }] });
-    else if (i % 7 === 5) nodeData.push({ label: 'ボーナスマス', type: 'plus', desc: 'サイコロ×200円', actions: [{ type: 'diceParam', paramId: 'money', multiplier: 200 }] });
-    else if (i % 7 === 6) nodeData.push({ label: '2マス進む', type: 'plus', desc: '追い風！', actions: [{ type: 'moveN', amount: 2 }] });
-    else nodeData.push({ label: `${i}マス目`, type: 'normal', desc: '', actions: [] });
+  if (template === 'long') {
+    // ロング: 52マスの巨大マップ (グリッド蛇行)
+    const ROWS = 6;
+    const COLS = 9;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const i = r * COLS + c;
+        const isStart = i === 0;
+        const isGoal = i === ROWS * COLS - 1;
+        const col = r % 2 === 0 ? c : (COLS - 1) - c;
+        
+        let type: NodeType = 'normal';
+        let actions: NodeData['actions'] = [];
+        let label = `${i}マス`;
+
+        if (isStart) { type = 'start'; label = 'スタート'; }
+        else if (isGoal) { type = 'goal'; label = 'ゴール'; actions = [{ type: 'goalBonus' }]; }
+        else if (i % 12 === 0) { type = 'stop'; label = 'ミニゲーム'; actions = [{ type: 'minigame', gameType: 'janken' }]; }
+        else if (i % 7 === 0) { type = 'plus'; label = 'ボーナス'; actions = [{ type: 'paramChange', paramId: 'money', amount: 1000 }]; }
+        else if (i % 8 === 0) { type = 'minus'; label = 'トラブル'; actions = [{ type: 'paramChange', paramId: 'money', amount: -500 }]; }
+        else if (i === 15) { type = 'plus'; label = 'ワープ'; actions = [{ type: 'teleport', targetNodeId: 'long-35' }]; }
+        else if (i === 45) { type = 'minus'; label = '落とし穴'; actions = [{ type: 'teleport', targetNodeId: 'long-30' }]; }
+
+        nodes.push(createNode(`long-${i}`, label, type, 150 + col * 200, 150 + r * 180, '', actions));
+        if (i > 0) addEdgeHelper(`long-${i-1}`, `long-${i}`);
+      }
+    }
+
+    nodes.push({
+      id: 'long-area', type: 'custom', position: { x: 50, y: 50 },
+      style: { width: 2000, height: 1200 }, zIndex: -10,
+      data: { label: '果てしない旅路', nodeType: 'area', areaColor: '#10b981', areaWidth: 2000, areaHeight: 1200 } as any
+    });
+
+    return { nodes, edges };
   }
-  const nodes = nodeData.map((nd, index) => {
-    const column = index % 5;
-    const row = Math.floor(index / 5);
-    const isReverse = row % 2 === 1;
-    return createNode(
-      `tpl-${index}`, nd.label, nd.type,
-      140 + (isReverse ? 4 - column : column) * 250,
-      160 + row * 200,
-      nd.desc, nd.actions
-    );
-  });
-  const edges = nodes.slice(0, -1).map((node, index) => ({
-    id: `tpl-e-${index}`,
-    source: node.id,
-    target: nodes[index + 1].id,
-    animated: true,
-  }));
-  return { nodes, edges };
+
+  // デフォルト (Simple)
+  const simpleNodes = [
+    createNode('s-start', 'スタート', 'start', 100, 300),
+    createNode('s-1', 'プラス', 'plus', 350, 300, '+500円', [{ type: 'paramChange', paramId: 'money', amount: 500 }]),
+    createNode('s-2', 'マイナス', 'minus', 600, 300, '-300円', [{ type: 'paramChange', paramId: 'money', amount: -300 }]),
+    createNode('s-goal', 'ゴール', 'goal', 850, 300),
+  ];
+  return {
+    nodes: simpleNodes,
+    edges: [
+      { id: 'se-1', source: 's-start', target: 's-1', animated: true },
+      { id: 'se-2', source: 's-1', target: 's-2', animated: true },
+      { id: 'se-3', source: 's-2', target: 's-goal', animated: true },
+    ]
+  };
 };
 
 export const useEditorStore = create<EditorState>((set, get) => ({

@@ -43,7 +43,15 @@ export default function Editor() {
   const [allowPublicEdit, setAllowPublicEdit] = useState(false);
   const [canEdit, setCanEdit] = useState(true);
   const [savedBoardId, setSavedBoardId] = useState<string | null>(null);
-  const [draftAvailable, setDraftAvailable] = useState(() => Boolean(localStorage.getItem(draftKey)));
+  const [draftAvailable, setDraftAvailable] = useState(false);
+  
+  useEffect(() => {
+    if (!routeBoardId) {
+      setDraftAvailable(false);
+      return;
+    }
+    setDraftAvailable(Boolean(localStorage.getItem(draftKey)));
+  }, [draftKey, routeBoardId]);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'synced'>('idle');
   const [showRevisions, setShowRevisions] = useState(false);
   const [showBoardSettings, setShowBoardSettings] = useState(false);
@@ -84,7 +92,8 @@ export default function Editor() {
             useEditorStore.getState().applyTemplate(template as any);
             setBoardName('テンプレートから作成');
           } else {
-            // デフォルトの初期状態（storeの初期値）を使用
+            useEditorStore.getState().resetStore();
+            setBoardName('無題のすごろく');
           }
           setIsLoadingBoard(false);
           return;
@@ -651,16 +660,34 @@ export default function Editor() {
 
         <AnimatePresence>
           {draftAvailable && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-auto">
-              <GlassCard className="p-8 text-center max-w-sm">
-                <h2 className="text-xl font-bold text-slate-800 mb-2">下書きが見つかりました</h2>
-                <p className="text-sm text-slate-500 mb-6">前回の編集内容（未保存）を復元しますか？</p>
-                <div className="flex gap-3">
-                  <button onClick={handleRestoreDraft} className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all">
-                    復元する
+            <motion.div 
+              initial={{ opacity: 0, y: 50 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              exit={{ opacity: 0, y: 50 }} 
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-lg"
+            >
+              <GlassCard className="p-4 flex items-center justify-between gap-4 shadow-2xl border-purple-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-sm font-bold text-slate-800">未保存の下書きがあります</h3>
+                    <p className="text-[10px] text-slate-500">前回の続きから編集を再開しますか？</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleDiscardDraft} 
+                    className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                  >
+                    破棄
                   </button>
-                  <button onClick={handleDiscardDraft} className="flex-1 py-3 bg-white text-slate-700 rounded-xl font-bold border border-slate-200 hover:bg-slate-50 transition-colors">
-                    破棄する
+                  <button 
+                    onClick={handleRestoreDraft} 
+                    className="px-5 py-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl text-xs font-bold shadow-lg hover:shadow-purple-200 transition-all active:scale-95"
+                  >
+                    復元する
                   </button>
                 </div>
               </GlassCard>
