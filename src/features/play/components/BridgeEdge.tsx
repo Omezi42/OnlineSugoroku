@@ -1,20 +1,31 @@
-import { getStraightPath, EdgeLabelRenderer } from '@xyflow/react';
+import { getStraightPath, useInternalNode } from '@xyflow/react';
 import type { EdgeProps } from '@xyflow/react';
 
 export const BridgeEdge = ({
   id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
+  source,
+  target,
   style = {},
   markerEnd,
 }: EdgeProps) => {
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+
+  if (!sourceNode || !targetNode) {
+    return null;
+  }
+
+  // 中心座標を計算 (measuredがない場合は0として扱う)
+  const sx = sourceNode.internals.positionAbsolute.x + (sourceNode.measured.width ?? 0) / 2;
+  const sy = sourceNode.internals.positionAbsolute.y + (sourceNode.measured.height ?? 0) / 2;
+  const tx = targetNode.internals.positionAbsolute.x + (targetNode.measured.width ?? 0) / 2;
+  const ty = targetNode.internals.positionAbsolute.y + (targetNode.measured.height ?? 0) / 2;
+
   const [edgePath] = getStraightPath({
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
+    sourceX: sx,
+    sourceY: sy,
+    targetX: tx,
+    targetY: ty,
   });
 
   return (

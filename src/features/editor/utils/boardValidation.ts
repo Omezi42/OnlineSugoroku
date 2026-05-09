@@ -37,12 +37,30 @@ export function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): Validatio
   const goalNodes = playableNodes.filter((node) => node.data.nodeType === 'goal');
   if (goalNodes.length === 0) errors.push('ゴールマスが配置されていません');
 
-  const connectedNodeIds = new Set<string>();
+  // 各ノードからの次の移動先候補を収集（エッジ + ワープ）
+  const nextNodesMap = new Map<string, string[]>();
   edges.forEach((edge) => {
-    connectedNodeIds.add(edge.source);
-    connectedNodeIds.add(edge.target);
+    if (!nextNodesMap.has(edge.source)) nextNodesMap.set(edge.source, []);
+    nextNodesMap.get(edge.source)?.push(edge.target);
   });
-  const isolated = playableNodes.filter((node) => !connectedNodeIds.has(node.id) && playableNodes.length > 1);
+  
+  playableNodes.forEach((node) => {
+    node.data.actions?.forEach((action) => {
+      if (action.type === 'warp' && action.targetNodeId) {
+        if (!nextNodesMap.has(node.id)) nextNodesMap.set(node.id, []);
+        nextNodesMap.get(node.id)?.push(action.targetNodeId);
+      }
+    });
+  });
+
+  // どこにも繋がっていないマスの判定（ワープも含む）
+  const hasConnection = new Set<string>();
+  nextNodesMap.forEach((targets, source) => {
+    hasConnection.add(source);
+    targets.forEach(t => hasConnection.add(t));
+  });
+  
+  const isolated = playableNodes.filter((node) => !hasConnection.has(node.id) && playableNodes.length > 1);
   if (isolated.length > 0) {
     warnings.push(`${isolated.length}個のマスがどこにも繋がっていません: ${isolated.map((node) => node.data.label).join(', ')}`);
   }
@@ -57,7 +75,7 @@ export function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): Validatio
       const current = queue.shift();
       if (!current || reachable.has(current)) continue;
       reachable.add(current);
-      outgoing.get(current)?.forEach((target) => {
+      nextNodesMap.get(current)?.forEach((target) => {
         if (!reachable.has(target)) queue.push(target);
       });
     }
@@ -72,7 +90,7 @@ export function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): Validatio
   }
 
   playableNodes
-    .filter((node) => node.data.nodeType !== 'goal' && (outgoing.get(node.id)?.length || 0) === 0)
+    .filter((node) => node.data.nodeType !== 'goal' && (nextNodesMap.get(node.id)?.length || 0) === 0)
     .forEach((node) => {
       warnings.push(`「${node.data.label}」から先へ進むルートがありません`);
     });
