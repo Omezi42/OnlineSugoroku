@@ -404,20 +404,60 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     }
   }, [gameState, boardData, roomId, localPlayerId, playSe, isProcessing]);
 
-  // 分岐選択の処理
-  const handleBranchSelect = useCallback(async (_edgeId: string, targetNodeId: string) => {
-    if (!gameState || !boardData || isProcessing) return;
-    const currentPid = gameState.playerOrder[gameState.currentTurnIndex];
-    const player = gameState.players[currentPid];
-    const logs = [...gameState.logs, createLog(`➡️ ${player.name} が「${getNodeById(targetNodeId, boardData.nodes)?.data.label || targetNodeId}」を選択`, 'move')];
+  // ターンを進める
+  const advanceTurn = useCallback(async (updatedPlayer: Player, logs: any[]) => {
+    if (!gameState || !boardData) return;
 
-    setIsProcessing(true);
-    try {
-      await processLanding(targetNodeId, player);
-    } finally {
-      setIsProcessing(false);
+    const updatedPlayers = { ...gameState.players, [updatedPlayer.id]: updatedPlayer };
+
+    // ゲーム終了判定
+    const allGoaled = Object.values(updatedPlayers).every(p => p.hasGoal);
+    if (allGoaled) {
+      playSe('goal');
+      await updateGameState(roomId, {
+        logs: [...logs, createLog('🏆 全員ゴール！ゲーム終了！')],
+        [`players.${updatedPlayer.id}`]: updatedPlayer,
+        status: 'finished',
+        pendingInteraction: null,
+      } as any);
+      setShowResultButton(true);
+      return;
     }
-  }, [gameState, boardData, roomId, isProcessing]);
+
+    // 次のターンインデックスを計算
+    let nextIdx = (gameState.currentTurnIndex + 1) % gameState.playerOrder.length;
+    let safety = 0;
+    const restUpdates: Record<string, any> = {};
+
+    while (safety < gameState.playerOrder.length) {
+      const nextPid = gameState.playerOrder[nextIdx];
+      const nextP = nextPid === updatedPlayer.id ? updatedPlayer : gameState.players[nextPid];
+
+      if (nextP?.hasGoal) {
+        nextIdx = (nextIdx + 1) % gameState.playerOrder.length;
+        safety++;
+        continue;
+      }
+
+      if (nextP && nextP.restTurns > 0) {
+        logs.push(createLog(`😴 ${nextP.name} は休みのためスキップ`, 'system'));
+        restUpdates[`players.${nextPid}.restTurns`] = nextP.restTurns - 1;
+        nextIdx = (nextIdx + 1) % gameState.playerOrder.length;
+        safety++;
+        continue;
+      }
+
+      break;
+    }
+
+    await updateGameState(roomId, {
+      logs,
+      [`players.${updatedPlayer.id}`]: updatedPlayer,
+      currentTurnIndex: nextIdx,
+      pendingInteraction: null,
+      ...restUpdates,
+    } as any);
+  }, [gameState, boardData, roomId, playSe]);
 
   // マスに着地した時の処理
   const processLanding = useCallback(async (nodeId: string, player: Player) => {
@@ -541,60 +581,26 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     await advanceTurn(updatedPlayer, logs);
   }, [gameState, boardData, roomId, playSe, animateMove, advanceTurn]);
 
-  // ターンを進める
-  const advanceTurn = useCallback(async (updatedPlayer: Player, logs: any[]) => {
-    if (!gameState || !boardData) return;
+  // 分岐選択の処理
+  const handleBranchSelect = useCallback(async (_edgeId: string, targetNodeId: string) => {
+    if (!gameState || !boardData || isProcessing) return;
+    const currentPid = gameState.playerOrder[gameState.currentTurnIndex];
+    const player = gameState.players[currentPid];
+    
+    // ログを生成
+    const logs = [...gameState.logs, createLog(`➡️ ${player.name} が「${getNodeById(targetNodeId, boardData.nodes)?.data.label || targetNodeId}」を選択`, 'move')];
+    // ここでlogsを使わずに直接updateGameState等に渡すか、あるいは後続で使う
+    // 今回はprocessLandingに渡さない設計になったため、必要に応じてログのみ更新する
+    await updateGameState(roomId, { logs } as any);
 
-    const updatedPlayers = { ...gameState.players, [updatedPlayer.id]: updatedPlayer };
-
-    // ゲーム終了判定
-    const allGoaled = Object.values(updatedPlayers).every(p => p.hasGoal);
-    if (allGoaled) {
-      playSe('goal');
-      await updateGameState(roomId, {
-        logs: [...logs, createLog('🏆 全員ゴール！ゲーム終了！')],
-        [`players.${updatedPlayer.id}`]: updatedPlayer,
-        status: 'finished',
-        pendingInteraction: null,
-      } as any);
-      setShowResultButton(true);
-      return;
+    setIsProcessing(true);
+    try {
+      await processLanding(targetNodeId, player);
+    } finally {
+      setIsProcessing(false);
     }
+  }, [gameState, boardData, roomId, isProcessing, processLanding]);
 
-    // 次のターンインデックスを計算
-    let nextIdx = (gameState.currentTurnIndex + 1) % gameState.playerOrder.length;
-    let safety = 0;
-    const restUpdates: Record<string, any> = {};
-
-    while (safety < gameState.playerOrder.length) {
-      const nextPid = gameState.playerOrder[nextIdx];
-      const nextP = nextPid === updatedPlayer.id ? updatedPlayer : gameState.players[nextPid];
-
-      if (nextP?.hasGoal) {
-        nextIdx = (nextIdx + 1) % gameState.playerOrder.length;
-        safety++;
-        continue;
-      }
-
-      if (nextP && nextP.restTurns > 0) {
-        logs.push(createLog(`😴 ${nextP.name} は休みのためスキップ`, 'system'));
-        restUpdates[`players.${nextPid}.restTurns`] = nextP.restTurns - 1;
-        nextIdx = (nextIdx + 1) % gameState.playerOrder.length;
-        safety++;
-        continue;
-      }
-
-      break;
-    }
-
-    await updateGameState(roomId, {
-      logs,
-      [`players.${updatedPlayer.id}`]: updatedPlayer,
-      currentTurnIndex: nextIdx,
-      pendingInteraction: null,
-      ...restUpdates,
-    } as any);
-  }, [gameState, boardData, roomId, playSe]);
 
   // ミニゲーム結果処理
   const handleMinigameResult = useCallback(async (won: boolean) => {
