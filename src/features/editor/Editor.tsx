@@ -9,12 +9,14 @@ import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
 import { canEditBoard, loadBoard, saveBoard, subscribeToBoard, saveRevision } from '../../services/boardService';
 import { GlassCard } from '../../components/ui/GlassCard';
-import { History, Save, Share2, Users, AlertCircle, Check, Copy, Globe2, Loader2, Play, RotateCcw, X, Home } from 'lucide-react';
+import { History, Share2, Users, AlertCircle, Check, Copy, Globe2, Loader2, Play, RotateCcw, X, Home } from 'lucide-react';
 import { RevisionHistoryPanel } from './panels/RevisionHistoryPanel';
+import { EditorTutorial } from './components/EditorTutorial';
 import { validateBoard } from './utils/boardValidation';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { getLocalOwnerId } from '../../services/localIdentity';
 import { useToast } from '../../hooks/useToast';
+import { checkBoardContent } from '../../utils/wordFilter';
 
 const categories = [
   { value: 'party', label: 'パーティー' },
@@ -44,6 +46,7 @@ export default function Editor() {
   const [draftAvailable, setDraftAvailable] = useState(() => Boolean(localStorage.getItem(draftKey)));
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'synced'>('idle');
   const [showRevisions, setShowRevisions] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(() => !localStorage.getItem('has_seen_editor_tutorial'));
   const { addToast } = useToast();
 
   const location = useLocation();
@@ -85,6 +88,7 @@ export default function Editor() {
         setBoardDescription(board.description || '');
         setAuthorName(board.authorName || '');
         setCategory(board.category || 'party');
+        setAgeRating(board.ageRating || 'all');
         setIsPublic(Boolean(board.isPublic));
         setAllowPublicEdit(Boolean(board.allowPublicEdit));
         setDraftAvailable(Boolean(localStorage.getItem(draftKey)));
@@ -136,6 +140,7 @@ export default function Editor() {
       if (data.name !== boardName) setBoardName(data.name);
       if (data.description !== boardDescription) setBoardDescription(data.description || '');
       if (data.authorName !== authorName) setAuthorName(data.authorName || '');
+      if (data.ageRating !== ageRating) setAgeRating(data.ageRating || 'all');
       if (data.isPublic !== isPublic) setIsPublic(Boolean(data.isPublic));
       if (data.allowPublicEdit !== allowPublicEdit) setAllowPublicEdit(Boolean(data.allowPublicEdit));
       
@@ -165,6 +170,7 @@ export default function Editor() {
           ownerId,
           ownerName,
           category,
+          ageRating,
           nodes,
           edges,
           settings: boardSettings,
@@ -199,6 +205,7 @@ export default function Editor() {
       setBoardDescription(draft.description || '');
       setAuthorName(draft.authorName || '');
       setCategory(draft.category || 'party');
+      setAgeRating(draft.ageRating || 'all');
       setIsPublic(Boolean(draft.isPublic));
       setAllowPublicEdit(Boolean(draft.allowPublicEdit));
       setDraftAvailable(false);
@@ -221,6 +228,15 @@ export default function Editor() {
     if (validation.warnings.length > 0) {
       const shouldContinue = window.confirm(`警告がありますが保存しますか？\n\n${validation.warnings.slice(0, 6).join('\n')}`);
       if (!shouldContinue) return;
+    }
+
+    // NGワードチェック (公開する場合のみ)
+    if (isPublic) {
+      const filterResult = checkBoardContent({ name: boardName, description: boardDescription, nodes });
+      if (filterResult.hasNgWord) {
+        alert(`不適切な可能性のある表現が含まれているため、公開できません。\n\n検出されたワード: ${filterResult.detectedWords.join(', ')}\n\n修正して再度保存してください。`);
+        return;
+      }
     }
 
     try {
@@ -291,7 +307,7 @@ export default function Editor() {
 
   return (
     <ReactFlowProvider>
-      <div className="flex h-screen w-full bg-slate-50 overflow-hidden relative">
+      <div id="tutorial-root" className="flex h-screen w-full bg-slate-50 overflow-hidden relative">
         {isLoadingBoard && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/70 backdrop-blur-sm">
             <div className="glass-panel rounded-2xl px-6 py-4 flex items-center gap-3 font-bold text-slate-700 shadow-xl">
@@ -342,7 +358,7 @@ export default function Editor() {
                 <History className="w-5 h-5" />
               </button>
             )}
-            <div className="glass-panel px-4 py-3 rounded-xl shadow-sm flex flex-col gap-2 min-w-[280px]">
+            <div id="board-settings" className="glass-panel px-4 py-3 rounded-xl shadow-sm flex flex-col gap-2 min-w-[280px]">
               <input
                 type="text"
                 value={boardName}
@@ -417,6 +433,7 @@ export default function Editor() {
               URLを知っている人に共同編集を許可
             </label>
             <button
+              id="share-button"
               onClick={() => {
                 const url = window.location.href;
                 navigator.clipboard.writeText(url);
@@ -428,6 +445,7 @@ export default function Editor() {
               <Share2 className="w-5 h-5" />
             </button>
             <button
+              id="test-play-button"
               onClick={handleSave}
               disabled={isSaving}
               className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 disabled:opacity-70"
@@ -492,6 +510,17 @@ export default function Editor() {
             <RevisionHistoryPanel 
               boardId={currentBoardId} 
               onClose={() => setShowRevisions(false)} 
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showTutorial && (
+            <EditorTutorial 
+              onComplete={() => {
+                setShowTutorial(false);
+                localStorage.setItem('has_seen_editor_tutorial', 'true');
+              }} 
             />
           )}
         </AnimatePresence>

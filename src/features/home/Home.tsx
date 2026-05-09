@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Play, PenTool, Sparkles, Users, X, ArrowRight, GalleryHorizontalEnd, Loader2, Pencil, BookOpen, Info, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Play, PenTool, Sparkles, Users, X, ArrowRight, GalleryHorizontalEnd, Loader2, Pencil, BookOpen, Info, Search, SlidersHorizontal, Trash2, User, Calendar, TrendingUp, Share2, Copy, Flag, AlertTriangle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { GlassCard } from '../../components/ui/GlassCard';
-import { listBoards, listMyBoards, deleteBoard } from '../../services/boardService';
+import { listBoards, listMyBoards, deleteBoard, cloneBoard, reportBoard } from '../../services/boardService';
 import type { BoardData, BoardSort } from '../../services/boardService';
 import { RulebookModal } from '../../components/RulebookModal';
 import { AuthPanel } from '../auth/AuthPanel';
@@ -74,7 +74,7 @@ export default function Home() {
         if (mounted) setMyBoards([]);
       });
     return () => { mounted = false; };
-  }, [localOwnerId, user?.uid]);
+  }, [localOwnerId, user?.uid, user]);
 
   const handleJoin = (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -82,7 +82,6 @@ export default function Home() {
     if (!value) return;
     try {
       const url = new URL(value);
-      // HashRouterを使っている場合、パスは url.hash (# 以降) に格納される
       const path = url.hash ? url.hash.slice(1) : url.pathname.replace(import.meta.env.BASE_URL, '/');
       navigate(path.startsWith('/play/') ? path : `/play/${value}`);
     } catch {
@@ -103,66 +102,87 @@ export default function Home() {
     }
   };
 
-  const renderBoardCard = (board: BoardData, index: number, showDelete = false) => (
-    <GlassCard key={board.id || `${board.name}-${index}`} hoverEffect className="p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-bold text-slate-800 truncate" title={board.name}>{board.name || '無題のすごろく'}</h3>
-          <p className="text-xs text-slate-500 mt-1">
-            {board.nodes.filter((node) => node.data.nodeType !== 'area').length}マス / {board.edges.length}ルート
-          </p>
-          <p className="text-xs text-slate-500 mt-1 line-clamp-2 min-h-[2rem]" title={board.description}>{board.description || '説明はまだありません'}</p>
-          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-bold">
-            <span className="rounded-full bg-purple-50 px-2 py-1 text-purple-700">{categories.find((item) => item.value === board.category)?.label || '未分類'}</span>
-            {board.allowPublicEdit && (
-              <span className="rounded-full bg-pink-100 px-2 py-1 text-pink-700 flex items-center gap-1">
-                <Users className="w-3 h-3" />
-                共同編集可
-              </span>
+  const handleClone = async (board: BoardData) => {
+    try {
+      const ownerId = user?.uid || localOwnerId;
+      const ownerName = user?.displayName || user?.email || '名無しさん';
+      const newId = await cloneBoard(board, ownerId, ownerName);
+      addToast('盤面を複製しました。エディターに移動します。', 'success');
+      navigate(`/editor/${newId}`);
+    } catch {
+      addToast('複製に失敗しました。', 'danger');
+    }
+  };
+
+  const handleReport = async (boardId: string) => {
+    if (!window.confirm('この盤面を不適切なコンテンツとして通報しますか？')) return;
+    try {
+      await reportBoard(boardId);
+      addToast('通報を受け付けました。ご協力ありがとうございます。', 'success');
+    } catch {
+      addToast('エラーが発生しました。', 'danger');
+    }
+  };
+
+  const renderBoardCard = (board: BoardData, index: number, showDelete = false) => {
+    return (
+      <GlassCard key={board.id || `${board.name}-${index}`} hoverEffect className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="font-bold text-slate-800 truncate" title={board.name}>{board.name || '無題のすごろく'}</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              {board.nodes.filter((node) => node.data.nodeType !== 'area').length}マス / {board.edges.length}ルート
+            </p>
+            <p className="text-xs text-slate-500 mt-1 line-clamp-2 min-h-[2rem]" title={board.description}>{board.description || '説明はまだありません'}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-bold">
+              <span className="rounded-full bg-purple-50 px-2 py-1 text-purple-700">{categories.find((item) => item.value === board.category)?.label || '未分類'}</span>
+              {board.allowPublicEdit && (
+                <span className="rounded-full bg-pink-100 px-2 py-1 text-pink-700 flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  共同編集
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 items-end">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white flex shrink-0 items-center justify-center shadow-md cursor-pointer" onClick={() => setSelectedBoard(board)}>
+              <Play className="w-5 h-5 ml-0.5" />
+            </div>
+            {showDelete && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDeleteBoard(board); }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                title="盤面を削除"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             )}
-            <span className="rounded-full bg-slate-50 px-2 py-1 text-slate-500">プレイ {board.playCount || 0}</span>
           </div>
         </div>
-        <div className="flex flex-col gap-2 items-end">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white flex shrink-0 items-center justify-center shadow-md">
-            <Play className="w-5 h-5 ml-0.5" />
-          </div>
-          {showDelete && (
-            <button
-              onClick={(e) => { e.stopPropagation(); handleDeleteBoard(board); }}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              title="盤面を削除"
-            >
-              <Trash2 className="w-4 h-4" />
+        <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
+          <button onClick={() => setSelectedBoard(board)} className="py-2 px-1 rounded-xl bg-white/70 text-xs sm:text-sm font-bold text-blue-700 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm border border-white">
+            <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>詳細</span>
+          </button>
+          {(board.allowPublicEdit || showDelete) ? (
+            <button onClick={() => board.id && navigate(`/editor/${board.id}`)} className="py-2 px-1 rounded-xl bg-pink-50 text-xs sm:text-sm font-bold text-pink-700 hover:bg-pink-100 transition-colors flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm border border-pink-200">
+              <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>{showDelete ? '編集' : '共同編集'}</span>
+            </button>
+          ) : (
+            <button onClick={() => handleClone(board)} className="py-2 px-1 rounded-xl bg-purple-50 text-xs sm:text-sm font-bold text-purple-700 hover:bg-purple-100 transition-colors flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm border border-purple-200">
+              <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>複製</span>
             </button>
           )}
+          <button onClick={() => board.id && navigate(`/play/${board.id}/room-${Date.now().toString(36)}`)} className="py-2 px-1 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs sm:text-sm font-bold hover:shadow-lg transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-md">
+            <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 fill-current" />
+            <span>遊ぶ</span>
+          </button>
         </div>
-      </div>
-      <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
-        <button onClick={() => setSelectedBoard(board)} className="py-2 px-1 rounded-xl bg-white/70 text-xs sm:text-sm font-bold text-blue-700 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1 sm:gap-1.5">
-          <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-          <span>詳細</span>
-        </button>
-        </button>
-        {(board.allowPublicEdit || showDelete) && (
-          <button onClick={() => board.id && navigate(`/editor/${board.id}`)} className="py-2 px-1 rounded-xl bg-pink-50 text-xs sm:text-sm font-bold text-pink-700 hover:bg-pink-100 transition-colors flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm border border-pink-200">
-            <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-            <span>{showDelete ? '編集' : '共同編集'}</span>
-          </button>
-        )}
-        {(!board.allowPublicEdit && !showDelete) && (
-          <button onClick={() => board.id && navigate(`/editor/${board.id}`)} className="py-2 px-1 rounded-xl bg-white/70 text-xs sm:text-sm font-bold text-slate-400 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1 sm:gap-1.5 cursor-not-allowed" title="閲覧のみ">
-            <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-            <span>閲覧</span>
-          </button>
-        )}
-        <button onClick={() => board.id && navigate(`/play/${board.id}/room-${Date.now().toString(36)}`)} className="py-2 px-1 rounded-xl bg-white/70 text-xs sm:text-sm font-bold text-purple-700 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm">
-          <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-          <span>遊ぶ</span>
-        </button>
-      </div>
-    </GlassCard>
-  );
+      </GlassCard>
+    );
+  };
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-slate-50 p-4">
@@ -281,50 +301,117 @@ export default function Home() {
 
       <AnimatePresence>
         {showRulebook && <RulebookModal onClose={() => setShowRulebook(false)} />}
+        
         {selectedBoard && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="w-full max-w-lg">
-              <GlassCard className="p-6 relative shadow-2xl">
-                <button onClick={() => setSelectedBoard(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-                <h2 className="text-2xl font-bold text-slate-800 pr-8">{selectedBoard.name || '無題のすごろく'}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{selectedBoard.description || 'この盤面にはまだ説明がありません。'}</p>
-                <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-xl bg-white/60 p-3 shadow-sm border border-white/50"><p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">マス</p><p className="font-black text-slate-800 text-lg">{selectedBoard.nodes.filter((node) => node.data.nodeType !== 'area').length}</p></div>
-                  <div className="rounded-xl bg-white/60 p-3 shadow-sm border border-white/50"><p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">ルート</p><p className="font-black text-slate-800 text-lg">{selectedBoard.edges.length}</p></div>
-                  <div className="rounded-xl bg-white/60 p-3 shadow-sm border border-white/50"><p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">作者</p><p className="font-black text-slate-800 truncate">{selectedBoard.authorName || '未設定'}</p></div>
-                </div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={() => setSelectedBoard(null)}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+              <GlassCard className="p-8 sm:p-10 relative overflow-hidden shadow-2xl">
+                {/* 装飾 */}
+                <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-200/30 rounded-full blur-3xl" />
+                <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-pink-200/30 rounded-full blur-3xl" />
 
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={() => {
-                      if (!selectedBoard.id) return;
-                      navigate(`/play/${selectedBoard.id}/room-${Date.now().toString(36)}`);
-                    }}
-                    className="py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    <Play className="w-5 h-5 fill-current" />
-                    今すぐ遊ぶ
-                  </button>
-                  <button 
-                    onClick={() => {
-                      if (!selectedBoard.id) return;
-                      navigate(`/editor/${selectedBoard.id}`);
-                    }}
-                    className="py-3 bg-white/80 backdrop-blur-md text-slate-700 rounded-2xl font-bold flex items-center justify-center gap-2 border border-slate-200 hover:bg-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    <Pencil className="w-5 h-5" />
-                    編集する
-                  </button>
+                <div className="relative z-10">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-600 uppercase tracking-wider">
+                          {selectedBoard.category || 'PARTY'}
+                        </span>
+                      </div>
+                      <h2 className="text-2xl sm:text-3xl font-black text-slate-800 leading-tight">
+                        {selectedBoard.name}
+                      </h2>
+                    </div>
+                    <button onClick={() => setSelectedBoard(null)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <p className="text-slate-600 leading-relaxed mb-8 text-sm sm:text-base">
+                    {selectedBoard.description || 'この盤面にはまだ説明がありません。'}
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                        <User className="w-3.5 h-3.5" /> 作者
+                      </div>
+                      <div className="text-sm font-bold text-slate-700">{selectedBoard.authorName || '名無しさん'}</div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                        <Calendar className="w-3.5 h-3.5" /> 更新日
+                      </div>
+                      <div className="text-sm font-bold text-slate-700">
+                        {selectedBoard.updatedAt ? new Date((selectedBoard.updatedAt as any).seconds * 1000).toLocaleDateString() : '---'}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                        <TrendingUp className="w-3.5 h-3.5" /> プレイ回数
+                      </div>
+                      <div className="text-sm font-bold text-slate-700">{selectedBoard.playCount || 0} 回</div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                        <BookOpen className="w-3.5 h-3.5" /> マス数
+                      </div>
+                      <div className="text-sm font-bold text-slate-700">{selectedBoard.nodes.length || 0} マス</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => navigate(`/play/${selectedBoard.id}/room-${Date.now().toString(36)}`)}
+                      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-purple-200 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-lg"
+                    >
+                      <Play className="w-6 h-6 fill-current" />
+                      あそぶ
+                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleClone(selectedBoard)}
+                        title="自分のワークスペースに複製"
+                        className="flex-1 sm:flex-none aspect-square sm:w-14 bg-white border-2 border-slate-100 text-slate-500 hover:text-purple-600 hover:border-purple-100 hover:bg-purple-50 transition-all rounded-2xl flex items-center justify-center group"
+                      >
+                        <Copy className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}${window.location.pathname}#/play/${selectedBoard.id}/room-${Date.now().toString(36)}`;
+                          navigator.clipboard.writeText(url);
+                          addToast('共有URLをコピーしました', 'success');
+                        }}
+                        title="共有URLをコピー"
+                        className="flex-1 sm:flex-none aspect-square sm:w-14 bg-white border-2 border-slate-100 text-slate-500 hover:text-purple-600 hover:border-purple-100 hover:bg-purple-50 transition-all rounded-2xl flex items-center justify-center group"
+                      >
+                        <Share2 className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                      </button>
+                      <button
+                        onClick={() => handleReport(selectedBoard.id!)}
+                        title="不適切な内容として通報"
+                        className="flex-1 sm:flex-none aspect-square sm:w-14 bg-white border-2 border-slate-100 text-slate-400 hover:text-red-500 hover:border-red-100 hover:bg-red-50 transition-all rounded-2xl flex items-center justify-center group"
+                      >
+                        <Flag className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {selectedBoard.reportCount && selectedBoard.reportCount > 0 && (
+                    <div className="mt-6 flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold">
+                      <AlertTriangle className="w-4 h-4" />
+                      この盤面は他のユーザーから通報されています。プレイの際はご注意ください。
+                    </div>
+                  )}
                 </div>
               </GlassCard>
             </motion.div>
           </motion.div>
         )}
+
         {showJoinModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="w-full max-w-md">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={() => setShowJoinModal(false)}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="w-full max-w-md" onClick={e => e.stopPropagation()}>
               <GlassCard className="p-6 relative shadow-2xl">
                 <button onClick={() => setShowJoinModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors">
                   <X className="w-5 h-5" />

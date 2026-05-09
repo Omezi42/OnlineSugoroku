@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { History, RotateCcw, Clock, Check, X } from 'lucide-react';
+import { History, RotateCcw, Clock, X } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
-import { getRevisions, BoardRevision } from '../../../services/boardService';
+import { getRevisions } from '../../../services/boardService';
+import type { BoardRevision } from '../../../services/boardService';
 import { useEditorStore } from '../store';
 import { useToast } from '../../../hooks/useToast';
 

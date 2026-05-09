@@ -20,7 +20,7 @@ export const Sidebar = () => {
   ];
 
   return (
-    <GlassCard className="w-64 h-full flex flex-col gap-4 rounded-none border-r border-t-0 border-b-0 border-l-0 shadow-xl overflow-y-auto z-10">
+    <GlassCard id="node-palette" className="w-64 h-full flex flex-col gap-4 rounded-none border-r border-t-0 border-b-0 border-l-0 shadow-xl overflow-y-auto z-10">
       <div>
         <h2 className="text-lg font-bold mb-2">🧩 マスを追加</h2>
         <p className="text-xs text-slate-500 mb-4">

@@ -3,20 +3,46 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ヘルパー関数
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(data) {
+      return data.ownerId == request.auth.uid || data.ownerId == request.resource.data.ownerId;
+    }
+
     // Boards (盤面データ)
     match /boards/{boardId} {
-      // 誰でも作成可能
-      allow create: if true;
-      // 読み取り：公開されている、または自分が所有者の場合
-      allow read: if resource.data.isPublic == true || resource.data.ownerId == request.auth.uid;
-      // 更新・削除：自分が所有者の場合のみ
-      allow update, delete: if resource.data.ownerId == request.auth.uid;
+      // 読み取り：公開されている、または自分が所有者（または共同編集URLを知っている）
+      allow read: if resource.data.isPublic == true || 
+                     (isSignedIn() && resource.data.ownerId == request.auth.uid) ||
+                     request.query.limit <= 100; // リスト表示用
+
+      // 作成：基本バリデーション
+      allow create: if request.resource.data.name is string && 
+                       request.resource.data.name.size() >= 1 && 
+                       request.resource.data.name.size() <= 100;
+
+      // 更新：所有者、または共同編集が許可されている場合
+      allow update: if (resource.data.ownerId == request.auth.uid) || 
+                       (resource.data.allowPublicEdit == true) ||
+                       // 通報やプレイ回数のインクリメントのみを許可する特別なケース
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportCount', 'playCount', 'updatedAt']));
+
+      // 削除：所有者のみ
+      allow delete: if resource.data.ownerId == request.auth.uid;
+
+      // リビジョン（サブコレクション）
+      match /revisions/{revId} {
+        allow read, write: if get(/databases/$(database)/documents/boards/$(boardId)).data.ownerId == request.auth.uid;
+      }
     }
 
     // Games / Rooms (プレイデータ)
-    // プレイデータはオンライン同期のため、全参加者がアクセスできるようにする必要がある
     match /games/{gameId} {
-      allow read, write: if true;
+      // プレイデータは誰でもアクセス可能だが、データサイズに制限を設ける
+      allow read, write: if request.resource.data.size() < 1048576; // 1MB制限
     }
   }
 }

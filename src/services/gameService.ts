@@ -1,4 +1,4 @@
-import { doc, setDoc, updateDoc, onSnapshot, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, onSnapshot, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { db } from './firebase';
 import type { GameState, Player } from '../types/game';
 
@@ -35,6 +35,26 @@ export const createGameRoom = async (roomId: string, boardId: string, hostPlayer
 // ルームへの参加
 export const joinGameRoom = async (roomId: string, player: Player) => {
   const docRef = doc(db, GAMES_COLLECTION, roomId);
+  const snap = await getDoc(docRef);
+  
+  if (snap.exists()) {
+    const data = snap.data() as GameState;
+    const existingPlayer = data.players?.[player.id];
+    
+    if (existingPlayer) {
+      // すでにプレイヤーが存在する場合、進行状況を維持しつつ参加（再接続扱い）
+      const updatedPlayer = {
+        ...player,
+        ...existingPlayer, // 既存のステートを優先
+        lastActive: Date.now(),
+      };
+      await updateDoc(docRef, {
+        [`players.${player.id}`]: updatedPlayer,
+        updatedAt: serverTimestamp(),
+      });
+      return;
+    }
+  }
   
   await updateDoc(docRef, {
     [`players.${player.id}`]: player,
@@ -61,10 +81,28 @@ export const subscribeToGameState = (
 };
 
 // ゲーム状態の更新 (汎用)
-export const updateGameState = async (roomId: string, updates: Partial<GameState>) => {
+export const updateGameState = async (roomId: string, updates: any) => {
   const docRef = doc(db, GAMES_COLLECTION, roomId);
   await updateDoc(docRef, {
     ...updates,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+// プレイヤーのハートビート更新
+export const updatePlayerHeartbeat = async (roomId: string, playerId: string) => {
+  const docRef = doc(db, GAMES_COLLECTION, roomId);
+  await updateDoc(docRef, {
+    [`players.${playerId}.lastActive`]: Date.now(),
+    updatedAt: serverTimestamp(),
+  });
+};
+
+// ホストの委譲
+export const migrateHost = async (roomId: string, newHostId: string) => {
+  const docRef = doc(db, GAMES_COLLECTION, roomId);
+  await updateDoc(docRef, {
+    [`players.${newHostId}.isHost`]: true,
     updatedAt: serverTimestamp(),
   });
 };

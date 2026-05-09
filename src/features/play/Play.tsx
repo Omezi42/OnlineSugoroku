@@ -9,7 +9,7 @@ import '@xyflow/react/dist/style.css';
 import { useGameSync } from '../../hooks/useGameSync';
 import { loadBoard, markBoardPlayed } from '../../services/boardService';
 import type { BoardData } from '../../services/boardService';
-import { createGameRoom, joinGameRoom, updateGameState } from '../../services/gameService';
+import { createGameRoom, joinGameRoom, updateGameState, updatePlayerHeartbeat, migrateHost } from '../../services/gameService';
 import { CustomNode } from '../editor/canvas/CustomNode';
 import { Dice } from './components/Dice';
 import { Lobby } from './components/Lobby';
@@ -23,6 +23,7 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { BoardRuleModal } from './components/BoardRuleModal';
 import { AudioMixer } from './components/AudioMixer';
 import { ToastNotification, type ToastData } from '../../components/ui/ToastNotification';
+import { useToast } from '../../hooks/useToast';
 import { useSoundSettings } from '../../hooks/useSoundSettings';
 import type { Player } from '../../types/game';
 import type { NodeData, MinigameAction, StealAction } from '../../types/board';
@@ -48,15 +49,21 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const [selectedNodeData, setSelectedNodeData] = useState<NodeData | null>(null);
   const [animatingPlayer, setAnimatingPlayer] = useState<{ id: string; position: string } | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const previousLogCount = useRef<number>(0);
+  const { addToast } = useToast();
   const { settings: soundSettings, setSettings: setSoundSettings, playSe } = useSoundSettings();
   const navigate = useNavigate();
 
   // 初回参加処理
   useEffect(() => {
+    let cancelled = false;
     const init = async () => {
       const board = await loadBoard(boardId);
-      if (!board) { alert('盤面が見つかりません'); return; }
+      if (cancelled || !board) { 
+        if (!board) alert('盤面が見つかりません'); 
+        return; 
+      }
       setBoardData(board);
       markBoardPlayed(boardId).catch(() => undefined);
 
@@ -68,30 +75,31 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       }
       setLocalPlayerId(pId);
 
+      // gameStateが読み込まれるのを待つ必要がある場合があるため、
+      // ここでは最低限の初期化を行い、ルーム参加は別で行うか、待機する。
       const startNodeId = board.nodes.find(n => n.data.nodeType === 'start')?.id || '';
-      // 初期パラメータをボード設定から生成
       const initParams: Record<string, number> = {};
       board.settings.parameters.forEach(p => { initParams[p.id] = p.initialValue; });
 
       try {
-        // すでにルームが存在するか参加を試みる
-        // もしすでにルーム内に自分がいるなら、既存のプレイヤー情報を維持する
-        const existingPlayer = gameState?.players?.[pId];
-        
+        // joinGameRoom内で既存プレイヤーがいれば上書きを避けるロジックを検討
         const playerObj: Player = {
           id: pId,
-          name: existingPlayer?.name || `プレイヤー${pId.slice(-3)}`,
-          icon: existingPlayer?.icon || '🎲',
-          isHost: existingPlayer?.isHost || false,
-          params: existingPlayer?.params || initParams,
-          position: existingPlayer?.position || startNodeId,
-          restTurns: existingPlayer?.restTurns || 0,
-          hasGoal: existingPlayer?.hasGoal || false,
-          rank: existingPlayer?.rank,
+          name: `プレイヤー${pId.slice(-3)}`,
+          icon: '🎲',
+          isHost: false, // join時はデフォルトfalse
+          params: initParams,
+          position: startNodeId,
+          restTurns: 0,
+          hasGoal: false,
+          lastActive: Date.now(),
         };
 
+        // 既存プレイヤーチェックをjoinGameRoom側、あるいはここで行う
+        // ※この時点ではgameStateがnullの可能性があるため、サーバー側でマージされる
         await joinGameRoom(roomId, playerObj);
       } catch {
+        // ルームが存在しない場合は作成
         const newPlayer: Player = {
           id: pId,
           name: `プレイヤー${pId.slice(-3)}`,
@@ -101,11 +109,13 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
           position: startNodeId,
           restTurns: 0,
           hasGoal: false,
+          lastActive: Date.now(),
         };
         await createGameRoom(roomId, boardId, newPlayer);
       }
     };
     init();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId, roomId]);
 
@@ -137,6 +147,43 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       previousLogCount.current = gameState.logs.length;
     }
   }, [gameState, showResult, showResultButton]);
+
+  // ハートビートとホスト委譲ロジック
+  useEffect(() => {
+    if (!gameState || !localPlayerId || gameState.status === 'finished') return;
+
+    // 自分のハートビートを更新 (5秒おき)
+    const heartbeatInterval = setInterval(() => {
+      updatePlayerHeartbeat(roomId, localPlayerId).catch(console.error);
+    }, 5000);
+
+    // ホストの生存確認 (10秒おき)
+    const migrationInterval = setInterval(() => {
+      const players = Object.values(gameState.players);
+      const currentHost = players.find(p => p.isHost);
+      const now = Date.now();
+      
+      // ホストが15秒以上不在なら委譲を検討
+      if (!currentHost || (now - currentHost.lastActive > 15000)) {
+        // 次のホスト候補を選出 (プレイヤーID順で一番若い生存プレイヤー)
+        const activePlayers = players
+          .filter(p => now - p.lastActive < 15000)
+          .sort((a, b) => a.id.localeCompare(b.id));
+
+        if (activePlayers.length > 0 && activePlayers[0].id === localPlayerId) {
+          // 自分が次のホスト候補なら委譲を実行
+          migrateHost(roomId, localPlayerId).then(() => {
+            addToast('ホストが離脱したため、あなたが新しいホストになりました', 'info');
+          }).catch(console.error);
+        }
+      }
+    }, 10000);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      clearInterval(migrationInterval);
+    };
+  }, [gameState, localPlayerId, roomId]);
 
   // ノードにプレイヤーコマ情報を付与した動的ノード一覧
   const nodesWithPlayers: Node<NodeData>[] = useMemo(() => {
@@ -186,12 +233,17 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   };
 
   const handleStartGame = useCallback(async () => {
-    if (!gameState) return;
-    await updateGameState(roomId, {
-      status: 'playing',
-      logs: [...gameState.logs, createLog('🎮 ゲームスタート！')],
-    });
-  }, [gameState, roomId]);
+    if (!gameState || isProcessing) return;
+    try {
+      setIsProcessing(true);
+      await updateGameState(roomId, {
+        status: 'playing',
+        logs: [...gameState.logs, createLog('🎮 ゲームスタート！')],
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [gameState, roomId, isProcessing]);
 
   const handleUpdateName = useCallback(async (name: string) => {
     if (!gameState) return;
@@ -265,47 +317,58 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
   // サイコロを振った後の処理
   const handleRollComplete = useCallback(async (result: number) => {
-    if (!gameState || !boardData) return;
+    if (!gameState || !boardData || isProcessing) return;
     const currentPid = gameState.playerOrder[gameState.currentTurnIndex];
     if (currentPid !== localPlayerId) return;
-    playSe('dice');
+    
+    setIsProcessing(true);
+    try {
+      playSe('dice');
 
-    const player = gameState.players[currentPid];
-    const logs = [...gameState.logs, createLog(`🎲 ${player.name} が ${result} を出した！`, 'move')];
+      const player = gameState.players[currentPid];
+      const logs = [...gameState.logs, createLog(`🎲 ${player.name} が ${result} を出した！`, 'move')];
 
-    // コマ移動
-    const moveResult = movePlayer(player.position, result, boardData.nodes, boardData.edges);
+      // コマ移動
+      const moveResult = movePlayer(player.position, result, boardData.nodes, boardData.edges);
 
-    // アニメーション実行
-    await animateMove(currentPid, moveResult.passedNodeIds);
+      // アニメーション実行
+      await animateMove(currentPid, moveResult.passedNodeIds);
 
-    if (moveResult.needsBranchChoice && moveResult.branchOptions) {
-      // 分岐選択が必要
-      await updateGameState(roomId, {
-        logs,
-        pendingInteraction: {
-          playerId: currentPid,
-          type: 'branch',
-          nodeId: moveResult.finalNodeId,
-          branchOptions: moveResult.branchOptions,
-        },
-      });
-      return;
+      if (moveResult.needsBranchChoice && moveResult.branchOptions) {
+        // 分岐選択が必要
+        await updateGameState(roomId, {
+          logs,
+          pendingInteraction: {
+            playerId: currentPid,
+            type: 'branch',
+            nodeId: moveResult.finalNodeId,
+            branchOptions: moveResult.branchOptions,
+          },
+        });
+        return;
+      }
+
+      // 移動完了 → マスのアクション処理へ
+      await processLanding(player, moveResult.finalNodeId, logs);
+    } finally {
+      setIsProcessing(false);
     }
-
-    // 移動完了 → マスのアクション処理へ
-    await processLanding(player, moveResult.finalNodeId, logs);
-  }, [gameState, boardData, roomId, localPlayerId, playSe]);
+  }, [gameState, boardData, roomId, localPlayerId, playSe, isProcessing]);
 
   // 分岐選択の処理
   const handleBranchSelect = useCallback(async (_edgeId: string, targetNodeId: string) => {
-    if (!gameState || !boardData) return;
+    if (!gameState || !boardData || isProcessing) return;
     const currentPid = gameState.playerOrder[gameState.currentTurnIndex];
     const player = gameState.players[currentPid];
     const logs = [...gameState.logs, createLog(`➡️ ${player.name} が「${getNodeById(targetNodeId, boardData.nodes)?.data.label || targetNodeId}」を選択`, 'move')];
 
-    await processLanding(player, targetNodeId, logs);
-  }, [gameState, boardData, roomId]);
+    setIsProcessing(true);
+    try {
+      await processLanding(player, targetNodeId, logs);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [gameState, boardData, roomId, isProcessing]);
 
   // マスに着地した時の処理
   const processLanding = async (player: Player, nodeId: string, logs: any[]) => {
@@ -776,7 +839,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
                 <Dice
                   diceType={boardData.settings.diceType}
                   onRollComplete={handleRollComplete}
-                  disabled={!isMyTurn || !!pending}
+                  disabled={!isMyTurn || !!pending || isProcessing}
                 />
               </div>
             )}

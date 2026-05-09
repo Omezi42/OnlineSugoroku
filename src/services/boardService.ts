@@ -18,6 +18,7 @@ export interface BoardData {
   settings: BoardSettings;
   isPublic?: boolean;
   allowPublicEdit?: boolean; // 共同編集の許可
+  reportCount?: number;
   createdAt?: unknown;
   updatedAt?: unknown;
 }
@@ -198,4 +199,23 @@ export const markBoardPlayed = async (boardId: string) => {
 export const deleteBoard = async (boardId: string) => {
   const docRef = doc(db, BOARDS_COLLECTION, boardId);
   await deleteDoc(docRef);
+};
+
+// 盤面の複製
+export const cloneBoard = async (board: BoardData, newOwnerId: string, newOwnerName: string): Promise<string> => {
+  const { id: _oldId, createdAt: _ca, updatedAt: _ua, playCount: _pc, reportCount: _rc, ...rest } = board;
+  return await saveBoard({
+    ...rest,
+    name: `${board.name} (コピー)`,
+    ownerId: newOwnerId,
+    ownerName: newOwnerName,
+    isPublic: false, // 複製直後は非公開
+    allowPublicEdit: false,
+  });
+};
+
+// 通報
+export const reportBoard = async (boardId: string) => {
+  const docRef = doc(db, BOARDS_COLLECTION, boardId);
+  await setDoc(docRef, { reportCount: increment(1) }, { merge: true });
 };

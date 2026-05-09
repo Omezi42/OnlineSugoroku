@@ -54,7 +54,7 @@ export const Canvas = () => {
   );
 
   return (
-    <div className="flex-grow h-full relative" ref={reactFlowWrapper}>
+    <div id="canvas-area" className="flex-grow h-full relative" ref={reactFlowWrapper}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
