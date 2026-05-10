@@ -16,10 +16,11 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
 
   const onAddItem = (type: NodeType) => {
     const { x, y, zoom } = getViewport();
-    // 画面中央付近に配置
+    // 画面中央付近に配置（重なり防止のため少しランダムにずらす）
+    const offset = (Math.random() - 0.5) * 40;
     const position = {
-      x: -x / zoom + (window.innerWidth / 2 - 150) / zoom,
-      y: -y / zoom + (window.innerHeight / 2 - 150) / zoom,
+      x: -x / zoom + (window.innerWidth / 2 - 150) / zoom + offset,
+      y: -y / zoom + (window.innerHeight / 2 - 150) / zoom + offset,
     };
 
     const newNode = {

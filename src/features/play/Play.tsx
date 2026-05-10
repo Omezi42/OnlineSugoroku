@@ -59,7 +59,15 @@ type CommitOptions = {
 function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const { gameState, isLoading } = useGameSync(roomId);
   const [boardData, setBoardData] = useState<BoardData | null>(null);
-  const [localPlayerId, setLocalPlayerId] = useState<string>('');
+  const [localPlayerId] = useState<string>(() => {
+    let pId = sessionStorage.getItem(`player-${roomId}`);
+    if (!pId) {
+      pId = `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
+      sessionStorage.setItem(`player-${roomId}`, pId);
+    }
+    return pId;
+  });
+
   const [showResult, setShowResult] = useState(false);
   const [showResultButton, setShowResultButton] = useState(false);
   const [showRuleModal, setShowRuleModal] = useState(false);
@@ -95,14 +103,6 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
         playBgm(board.settings.bgmType as any);
       }
 
-      // sessionStorageでプレイヤーIDを保持（リロード対策）
-      let pId = sessionStorage.getItem(`player-${roomId}`);
-      if (!pId) {
-        pId = `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
-        sessionStorage.setItem(`player-${roomId}`, pId);
-      }
-      setLocalPlayerId(pId);
-
       // gameStateが読み込まれるのを待つ必要がある場合があるため、
       // ここでは最低限の初期化を行い、ルーム参加は別で行うか、待機する。
       const startNodeId = board.nodes.find(n => n.data.nodeType === 'start')?.id || '';
@@ -112,8 +112,8 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       try {
         // joinGameRoom内で既存プレイヤーがいれば上書きを避けるロジックを検討
         const playerObj: Player = {
-          id: pId,
-          name: `プレイヤー${pId.slice(-3)}`,
+          id: localPlayerId,
+          name: `プレイヤー${localPlayerId.slice(-3)}`,
           icon: '🎲',
           isHost: false, // join時はデフォルトfalse
           params: initParams,
@@ -130,8 +130,8 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       } catch {
         // ルームが存在しない場合は作成
         const newPlayer: Player = {
-          id: pId,
-          name: `プレイヤー${pId.slice(-3)}`,
+          id: localPlayerId,
+          name: `プレイヤー${localPlayerId.slice(-3)}`,
           icon: '🎲',
           isHost: true,
           params: initParams,

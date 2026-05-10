@@ -27,8 +27,24 @@ interface UpdateGuard {
 
 const trimLogs = (logs: LogEntry[]) => logs.slice(-MAX_LOG_ENTRIES);
 
+const removeUndefined = (obj: any): any => {
+  if (Array.isArray(obj)) return obj.map(removeUndefined);
+  if (obj !== null && typeof obj === 'object') {
+    // Firestoreの特殊オブジェクト（FieldValueなど）はそのまま返す
+    if (obj.constructor && obj.constructor.name === 'FieldValue') return obj;
+    if ('_methodName' in obj) return obj; 
+    
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([_, v]) => v !== undefined)
+        .map(([k, v]) => [k, removeUndefined(v)])
+    );
+  }
+  return obj;
+};
+
 const normalizeUpdates = (updates: Record<string, unknown>) => {
-  const normalized = { ...updates };
+  const normalized = removeUndefined({ ...updates });
   if (Array.isArray(normalized.logs)) {
     normalized.logs = trimLogs(normalized.logs as LogEntry[]);
   }
