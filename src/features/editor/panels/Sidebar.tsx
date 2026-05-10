@@ -1,4 +1,4 @@
-import type { NodeType } from '../../../types/board';
+import type { NodeType, NodeSize } from '../../../types/board';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { X } from 'lucide-react';
 
@@ -7,7 +7,7 @@ import { useReactFlow } from '@xyflow/react';
 
 export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
   const { addNode } = useEditorStore();
-  const { getViewport, setCenter } = useReactFlow();
+  const { getViewport } = useReactFlow();
 
   const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {
     event.dataTransfer.setData('application/reactflow', nodeType);

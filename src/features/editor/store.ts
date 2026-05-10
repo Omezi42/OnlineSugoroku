@@ -25,6 +25,7 @@ interface EditorState extends HistorySnapshot {
 
   addNode: (node: Node<NodeData>) => void;
   updateNodeData: (id: string, data: Partial<NodeData>) => void;
+  updateNodesData: (ids: string[], data: Partial<NodeData>) => void;
   updateNode: (id: string, updates: Partial<Node<NodeData>>) => void;
   removeNode: (id: string) => void;
   updateBoardSettings: (settings: Partial<BoardSettings>) => void;
@@ -40,6 +41,8 @@ interface EditorState extends HistorySnapshot {
   snapSelectedToGrid: () => void;
   resetStore: () => void;
   mergeRemoteState: (data: { nodes: Node<NodeData>[]; edges: Edge[]; settings: BoardSettings }) => void;
+  connectionSourceId: string | null;
+  setConnectionSourceId: (id: string | null) => void;
 }
 
 const defaultBoardSettings: BoardSettings = {
@@ -389,7 +392,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
-  updateNodesData: (ids, data) => {
+  updateNodesData: (ids: string[], data: Partial<NodeData>) => {
     set((state) => ({
       ...pushHistory(state),
       nodes: state.nodes.map((node) =>
@@ -575,4 +578,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       boardSettings: remoteData.settings,
     };
   }),
+  connectionSourceId: null,
+  setConnectionSourceId: (id) => set({ connectionSourceId: id }),
 }));

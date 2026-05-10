@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { ReactFlow, Background, BackgroundVariant, Controls, MiniMap, useReactFlow, MarkerType, type Node } from '@xyflow/react';
+import { ReactFlow, Background, BackgroundVariant, Controls, MiniMap, useReactFlow, MarkerType } from '@xyflow/react';
 import type { NodeTypes } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -17,32 +17,20 @@ const edgeTypes = {
 };
 
 export const Canvas = () => {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, snapToGrid, gridSize } = useEditorStore();
+  const { 
+    nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, snapToGrid, gridSize,
+    connectionSourceId, setConnectionSourceId 
+  } = useEditorStore();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
 
-  // 右クリックドラッグ接続用の状態
-  const [connectionSourceId, setConnectionSourceId] = useState<string | null>(null);
+  // 右クリックドラッグ接続用のマウス位置（これだけは頻繁に変わるのでローカルで保持）
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
   }, []);
-
-  const onNodeMouseDown = useCallback((event: React.MouseEvent, node: Node) => {
-    if (event.button === 2 && node.data.nodeType !== 'area') {
-      event.preventDefault();
-      setConnectionSourceId(node.id);
-    }
-  }, []);
-
-  const onNodeMouseUp = useCallback((_event: React.MouseEvent, node: Node) => {
-    if (connectionSourceId && connectionSourceId !== node.id && node.data.nodeType !== 'area') {
-      onConnect({ source: connectionSourceId, target: node.id });
-    }
-    setConnectionSourceId(null);
-  }, [connectionSourceId, onConnect]);
 
   const onPaneMouseMove = useCallback((event: React.MouseEvent) => {
     if (connectionSourceId) {
@@ -52,7 +40,7 @@ export const Canvas = () => {
 
   const onPaneMouseUp = useCallback(() => {
     setConnectionSourceId(null);
-  }, []);
+  }, [setConnectionSourceId]);
 
   // コンテキストメニューを無効化（右クリックドラッグを優先）
   const onContextMenu = useCallback((event: React.MouseEvent) => {
@@ -104,6 +92,8 @@ export const Canvas = () => {
       className="flex-grow h-full relative" 
       ref={reactFlowWrapper}
       onContextMenu={onContextMenu}
+      onPointerMove={onPaneMouseMove}
+      onPointerUp={onPaneMouseUp}
     >
       <ReactFlow
         nodes={nodes}
@@ -115,15 +105,12 @@ export const Canvas = () => {
           // 選択状態の変更を検知してログ出力（デバッグ用兼、再レンダリング保証）
           console.log('Selection changed:', selectedNodes.length);
         }}
-        onNodeMouseUp={onNodeMouseUp}
         onNodeContextMenu={(e, node) => {
           e.preventDefault();
           if (node.data.nodeType !== 'area') {
             setConnectionSourceId(node.id);
           }
         }}
-        onPaneMouseMove={onPaneMouseMove}
-        onPaneMouseUp={onPaneMouseUp}
         nodeTypes={nodeTypes}
         onDragOver={onDragOver}
         onDrop={onDrop}
@@ -154,7 +141,7 @@ export const Canvas = () => {
         {sourceNode && (
           <svg className="absolute inset-0 pointer-events-none overflow-visible z-50">
             <line
-              x1={sourceNode.position.x + 64} // 大体ノードの中心
+              x1={sourceNode.position.x + 64} 
               y1={sourceNode.position.y + 64}
               x2={mousePos.x}
               y2={mousePos.y}
