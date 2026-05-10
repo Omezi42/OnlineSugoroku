@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useEditorStore } from '../store';
 import { GlassCard } from '../../../components/ui/GlassCard';
-import { Play, RotateCcw, BarChart3, Users, Clock, AlertTriangle, X, Info } from 'lucide-react';
-import { movePlayer, rollDice, processAction, checkGoal } from '../../../services/gameEngine';
-import type { Player, GameState } from '../../../types/game';
+import { Play, RotateCcw, BarChart3, Clock, AlertTriangle, X, Info } from 'lucide-react';
+import { movePlayer, rollDice, checkGoal } from '../../../services/gameEngine';
+import type { Player } from '../../../types/game';
 
 interface SimResult {
   totalGames: number;
@@ -21,7 +21,6 @@ export const AISimulatorPanel = () => {
   const [isSimulating, setIsSimulating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<SimResult | null>(null);
-  const [playerCount, setPlayerCount] = useState(4);
 
   useEffect(() => {
     const toggle = () => setIsOpen(prev => !prev);

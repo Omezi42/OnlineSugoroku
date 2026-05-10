@@ -406,10 +406,10 @@ export default function Editor() {
       const { setEditorMode } = useEditorStore.getState();
       if (e.key.toLowerCase() === 'm') {
         setEditorMode('move');
-        addToast({ title: '移動モード', message: 'ノードを自由に動かせます', type: 'info' });
+        addToast('移動モード: ノードを自由に動かせます', 'info');
       } else if (e.key.toLowerCase() === 'c') {
         setEditorMode('connect');
-        addToast({ title: '接続モード', message: 'ノードをドラッグして接続できます', type: 'info' });
+        addToast('接続モード: ノードをドラッグして接続できます', 'info');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -821,6 +821,8 @@ export default function Editor() {
             />
           )}
         </AnimatePresence>
+
+        <AISimulatorPanel />
       </div>
     </ReactFlowProvider>
   );

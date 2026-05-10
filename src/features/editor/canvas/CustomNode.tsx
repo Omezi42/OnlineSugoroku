@@ -1,5 +1,6 @@
 import { Handle, Position, NodeResizer } from '@xyflow/react';
-import { ChevronDown, ChevronLeft, ChevronRight, Download, ArrowUpCircle } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ArrowUpCircle } from 'lucide-react';
+
 
 import { useEditorStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';

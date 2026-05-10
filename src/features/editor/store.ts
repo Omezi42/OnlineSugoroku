@@ -42,6 +42,7 @@ interface EditorState extends HistorySnapshot {
   setGridSize: (size: number) => void;
   snapSelectedToGrid: () => void;
   resetStore: () => void;
+  mergeRemoteState: (data: { nodes: Node<NodeData>[]; edges: Edge[]; settings: BoardSettings }) => void;
   editorMode: 'move' | 'connect';
   setEditorMode: (mode: 'move' | 'connect') => void;
   connectionSourceId: string | null;
