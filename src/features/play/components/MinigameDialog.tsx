@@ -264,7 +264,7 @@ const MashingGame = ({ onResult, isOwner, playerName }: { onResult: (won: boolea
     }, 50);
   };
 
-  const finish = (startAt: number) => {
+  const finish = () => {
     setIsPlaying(false);
     // 最終的なカウントで判定（ステートの更新が間に合わない可能性を考慮して少し余裕を持たせるか、あるいは最新値を参照）
     setCount(prev => {

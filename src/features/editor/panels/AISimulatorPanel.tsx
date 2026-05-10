@@ -45,20 +45,9 @@ export const AISimulatorPanel = () => {
 
       let turns = 0;
       let playerPos = 'start-node';
-      let playerParams: Record<string, number> = {};
+      const playerParams: Record<string, number> = {};
       boardSettings.parameters.forEach(p => playerParams[p.id] = p.initialValue);
       
-      const virtualPlayer: Player = {
-        id: 'sim-player',
-        name: 'AI',
-        icon: '🤖',
-        position: 'start-node',
-        params: playerParams,
-        isHost: true,
-        isMe: true,
-        lastActive: Date.now()
-      };
-
       const maxTurns = 500; // 無限ループ防止
       while (turns < maxTurns) {
         turns++;
@@ -81,13 +70,10 @@ export const AISimulatorPanel = () => {
           break;
         }
 
-        // マスのアクション実行 (簡易化: インタラクションが必要なものはスキップまたはランダム)
+        // マスのアクション実行
         const node = nodes.find(n => n.id === playerPos);
         if (node?.data.actions) {
-          for (const action of node.data.actions) {
-             // processAction を呼び出すが、sim上では副作用なし
-             // 実際には virtualPlayer を更新する必要があるが、ここでは簡易統計のみ
-          }
+          // シミュレーション用の簡易処理（将来的に拡張可能）
         }
       }
     }

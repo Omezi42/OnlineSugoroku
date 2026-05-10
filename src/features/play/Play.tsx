@@ -305,7 +305,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
         status: 'playing',
         logs: [...gameState.logs, createLog('🎮 ゲームスタート！')],
       }, { hostPlayerId: localPlayerId });
-      playSe('start');
+      playSe('event');
     } catch (error: any) {
       console.error('Failed to start game:', error);
       addToast(error.message || 'ゲームの開始に失敗しました。', 'danger');
