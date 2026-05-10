@@ -1,4 +1,6 @@
 import { Handle, Position, NodeResizer } from '@xyflow/react';
+import { ChevronDown, ChevronLeft, ChevronRight, Download, ArrowUpCircle } from 'lucide-react';
+
 import { useEditorStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { NodeData } from '../../../types/board';
@@ -32,12 +34,19 @@ const sizeClasses: Record<string, string> = {
   large: 'w-40 h-40 text-lg',
 };
 
-// ハンドル共通スタイル（大きめ＋ホバーエフェクト）
-const handleClass = 'w-7 h-7 !bg-purple-500 border-2 !border-white hover:!bg-pink-500 hover:scale-110 transition-all cursor-crosshair z-10';
+// ハンドル共通スタイル（かなり大きめ＋ホバーエフェクト）
+const handleClass = 'w-10 h-10 !bg-purple-500 border-4 !border-white hover:!bg-pink-500 hover:scale-125 transition-all cursor-crosshair z-20 flex items-center justify-center text-white text-[10px] font-bold shadow-lg rounded-full';
 
 export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData, selected?: boolean }) => {
   const { updateNodeData, connectionSourceId, setConnectionSourceId, onConnect } = useEditorStore();
   const players = data.playersOnNode || [];
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (useEditorStore.getState().editorMode === 'connect' && data.nodeType !== 'area') {
+      e.stopPropagation();
+      setConnectionSourceId(id);
+    }
+  };
 
   const onPointerUp = (e: React.PointerEvent) => {
     if (connectionSourceId && connectionSourceId !== id && data.nodeType !== 'area') {
@@ -101,6 +110,7 @@ export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData,
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       layoutId={id}
+      onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       className={cn(
         'relative flex flex-col items-center justify-center rounded-2xl shadow-lg transition-transform',
@@ -116,8 +126,10 @@ export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData,
       <Handle
         type="target"
         position={Position.Top}
-        className={cn(handleClass, '!bg-green-500 hover:!bg-green-400')}
-      />
+        className={cn(handleClass, '!bg-emerald-500 hover:!bg-emerald-400')}
+      >
+        <ArrowUpCircle size={16} />
+      </Handle>
 
       {/* マスの種類ラベル */}
       <div className="absolute top-2 left-0 right-0 text-center">
@@ -175,20 +187,29 @@ export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData,
         type="source"
         position={Position.Bottom}
         id="bottom"
+        onPointerDown={onPointerDown}
         className={handleClass}
-      />
+      >
+        <ChevronDown size={16} />
+      </Handle>
       <Handle
         type="source"
         position={Position.Right}
         id="right"
+        onPointerDown={onPointerDown}
         className={handleClass}
-      />
+      >
+        <ChevronRight size={16} />
+      </Handle>
       <Handle
         type="source"
         position={Position.Left}
         id="left"
+        onPointerDown={onPointerDown}
         className={handleClass}
-      />
+      >
+        <ChevronLeft size={16} />
+      </Handle>
     </motion.div>
   );
 };

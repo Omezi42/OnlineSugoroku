@@ -360,6 +360,8 @@ const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps)
                   <option value="janken">じゃんけん</option>
                   <option value="highlow">ハイ＆ロー</option>
                   <option value="chouhan">丁半</option>
+                  <option value="mashing">連打勝負</option>
+                  <option value="timing">タイミングゲージ</option>
                 </select>
               </div>
 

@@ -72,8 +72,17 @@ const assertGuard = (state: GameState, guard?: UpdateGuard) => {
     }
   }
 
-  if (guard.hostPlayerId && !state.players[guard.hostPlayerId]?.isHost) {
-    throw new Error('ホストだけが実行できます。');
+  if (guard.hostPlayerId) {
+    const p = state.players[guard.hostPlayerId];
+    if (!p || !p.isHost) {
+      console.error('Host guard failed:', { 
+        guardId: guard.hostPlayerId, 
+        playerExists: !!p, 
+        isHost: p?.isHost,
+        allPlayers: Object.keys(state.players)
+      });
+      throw new Error('ホストだけが実行できます。');
+    }
   }
 };
 

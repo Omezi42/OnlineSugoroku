@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEditorStore } from '../store';
 import {
   Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2,
-  Rows3, Workflow, CircleDot, Maximize2, Magnet, BarChart3,
+  Rows3, Workflow, CircleDot, Maximize2, Magnet, BarChart3, MousePointer2,
 } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { validateBoard, type ValidationResult } from '../utils/boardValidation';
@@ -127,6 +127,31 @@ export const EditorToolbar = ({ showAnalytics, setShowAnalytics }: { showAnalyti
         <div className="glass-panel px-2 py-2 rounded-2xl shadow-xl flex items-center gap-1.5 overflow-x-auto max-w-[95vw] pointer-events-auto scrollbar-hide">
           <div className="flex items-center gap-1.5 px-1 border-r border-slate-200 mr-1">
             <button
+              onClick={() => useEditorStore.getState().setEditorMode('move')}
+              className={`p-2 rounded-xl transition-all ${
+                useEditorStore.getState().editorMode === 'move'
+                  ? 'bg-purple-500 text-white shadow-md scale-110'
+                  : 'bg-white/70 hover:bg-white text-slate-700'
+              }`}
+              title="移動モード (M)"
+            >
+              <MousePointer2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => useEditorStore.getState().setEditorMode('connect')}
+              className={`p-2 rounded-xl transition-all ${
+                useEditorStore.getState().editorMode === 'connect'
+                  ? 'bg-purple-500 text-white shadow-md scale-110'
+                  : 'bg-white/70 hover:bg-white text-slate-700'
+              }`}
+              title="接続モード (C)"
+            >
+              <Workflow className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-1 border-r border-slate-200 mr-1">
+            <button
               onClick={undo}
               disabled={past.length === 0}
               className="p-2 rounded-xl bg-white/70 hover:bg-white text-slate-700 transition-colors disabled:opacity-40"
@@ -194,13 +219,24 @@ export const EditorToolbar = ({ showAnalytics, setShowAnalytics }: { showAnalyti
           </button>
 
           <button
-            onClick={() => setShowAnalytics && setShowAnalytics(!showAnalytics)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-colors ${
-              showAnalytics ? 'bg-indigo-100 text-indigo-700' : 'bg-white/70 hover:bg-white text-slate-700'
+            onClick={() => setShowAnalytics?.(!showAnalytics)}
+            className={`w-10 h-10 rounded-xl shadow-lg backdrop-blur-md transition-colors flex items-center justify-center ${
+              showAnalytics ? 'bg-purple-100 text-purple-700' : 'bg-white/90 text-slate-700 hover:bg-slate-50'
             }`}
+            title="アナリティクス"
           >
-            <BarChart3 className="w-4 h-4" />
-            <span className="hidden sm:inline">分析</span>
+            <BarChart3 className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => {
+              const event = new CustomEvent('toggle-ai-simulator');
+              window.dispatchEvent(event);
+            }}
+            className="w-10 h-10 rounded-xl bg-white/90 shadow-lg backdrop-blur-md hover:bg-purple-50 text-slate-700 hover:text-purple-700 transition-colors flex items-center justify-center"
+            title="AIシミュレーター"
+          >
+            <Search className="w-5 h-5" />
           </button>
 
           <div className="w-px h-6 bg-slate-200 mx-1" />

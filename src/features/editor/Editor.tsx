@@ -15,6 +15,7 @@ import { BoardSettingsPanel } from './panels/BoardSettingsPanel';
 import { EditorTutorial } from './components/EditorTutorial';
 import { validateBoard } from './utils/boardValidation';
 import { AnalyticsPanel } from './panels/AnalyticsPanel';
+import { AISimulatorPanel } from './panels/AISimulatorPanel';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { getLocalOwnerId } from '../../services/localIdentity';
 import { useToast } from '../../hooks/useToast';
@@ -395,6 +396,25 @@ export default function Editor() {
   };
 
   const hasSelection = nodes.some(n => n.selected);
+
+  // ショートカットキー設定
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Input要素内では無効化
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+      
+      const { setEditorMode } = useEditorStore.getState();
+      if (e.key.toLowerCase() === 'm') {
+        setEditorMode('move');
+        addToast({ title: '移動モード', message: 'ノードを自由に動かせます', type: 'info' });
+      } else if (e.key.toLowerCase() === 'c') {
+        setEditorMode('connect');
+        addToast({ title: '接続モード', message: 'ノードをドラッグして接続できます', type: 'info' });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [addToast]);
 
   return (
     <ReactFlowProvider>

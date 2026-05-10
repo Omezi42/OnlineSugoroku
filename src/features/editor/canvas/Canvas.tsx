@@ -120,6 +120,9 @@ export const Canvas = ({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        nodesDraggable={useEditorStore.getState().editorMode === 'move'}
+        nodesConnectable={true}
+        elementsSelectable={true}
         onSelectionChange={({ nodes: selectedNodes }) => {
           // 選択状態の変更を検知してログ出力（デバッグ用兼、再レンダリング保証）
           console.log('Selection changed:', selectedNodes.length);

@@ -99,7 +99,7 @@ export interface StealAction extends BaseAction {
 
 export interface MinigameAction extends BaseAction {
   type: 'minigame';
-  gameType: 'highlow' | 'janken' | 'chouhan';
+  gameType: 'highlow' | 'janken' | 'chouhan' | 'mashing' | 'timing';
   winActions: Action[];
   loseActions: Action[];
   winEdgeId?: string;
