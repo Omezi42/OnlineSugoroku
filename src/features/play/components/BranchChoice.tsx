@@ -5,6 +5,8 @@ import { GlassCard } from '../../../components/ui/GlassCard';
 interface BranchChoiceProps {
   options: { edgeId: string; targetNodeId: string; label?: string }[];
   onSelect: (edgeId: string, targetNodeId: string) => void;
+  disabled?: boolean;
+  playerName?: string;
 }
 
 const containerVariants: Variants = {
@@ -25,7 +27,7 @@ const colors = [
   'from-orange-500 to-amber-600',
 ];
 
-export const BranchChoice = ({ options, onSelect }: BranchChoiceProps) => {
+export const BranchChoice = ({ options, onSelect, disabled, playerName }: BranchChoiceProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center pb-12 pointer-events-none">
       <motion.div
@@ -35,17 +37,22 @@ export const BranchChoice = ({ options, onSelect }: BranchChoiceProps) => {
         className="pointer-events-auto"
       >
         <GlassCard className="p-6 max-w-lg w-full">
-          <h3 className="text-lg font-bold text-slate-800 mb-1 text-center">🔀 どちらに進む？</h3>
-          <p className="text-xs text-slate-500 mb-4 text-center">進む方向を選んでください</p>
-          <div className="flex flex-wrap gap-3 justify-center">
+          <h3 className="text-lg font-bold text-slate-800 mb-1 text-center">
+            {disabled ? `⌛ ${playerName} さんが選択中...` : '🔀 どちらに進む？'}
+          </h3>
+          <p className="text-xs text-slate-500 mb-4 text-center">
+            {disabled ? 'ルートが選ばれるのを待っています' : '進む方向を選んでください'}
+          </p>
+          <div className={`flex flex-wrap gap-3 justify-center ${disabled ? 'opacity-50 grayscale' : ''}`}>
             {options.map((opt, i) => (
               <motion.button
                 key={opt.edgeId}
                 variants={itemVariants}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onSelect(opt.edgeId, opt.targetNodeId)}
-                className={`px-6 py-3 bg-gradient-to-r ${colors[i % colors.length]} text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-shadow min-w-[120px]`}
+                whileHover={!disabled ? { scale: 1.05 } : {}}
+                whileTap={!disabled ? { scale: 0.95 } : {}}
+                onClick={() => !disabled && onSelect(opt.edgeId, opt.targetNodeId)}
+                disabled={disabled}
+                className={`px-6 py-3 bg-gradient-to-r ${colors[i % colors.length]} text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-shadow min-w-[120px] ${disabled ? 'cursor-not-allowed' : ''}`}
               >
                 {opt.label || `ルート ${i + 1}`}
               </motion.button>

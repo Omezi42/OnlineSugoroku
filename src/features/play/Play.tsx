@@ -7,7 +7,7 @@ import { BookOpen, Loader2, Settings2, LogOut, SkipForward, RotateCcw, UserMinus
 import '@xyflow/react/dist/style.css';
 
 import { useGameSync } from '../../hooks/useGameSync';
-import { loadBoard, markBoardPlayed } from '../../services/boardService';
+import { loadBoard, markBoardPlayed, recordBoardStats } from '../../services/boardService';
 import type { BoardData } from '../../services/boardService';
 import { createGameRoom, joinGameRoom, updateGameState, updatePlayerHeartbeat, migrateHost } from '../../services/gameService';
 import { CustomNode } from '../editor/canvas/CustomNode';
@@ -19,15 +19,19 @@ import { ResultScreen } from './components/ResultScreen';
 import { PlayerStatusPanel } from './components/PlayerStatusPanel';
 import { StealDialog } from './components/StealDialog';
 import { NodeDetailPanel } from './components/NodeDetailPanel';
+import { RouletteOverlay } from './components/RouletteOverlay';
+import { CardDrawOverlay } from './components/CardDrawOverlay';
+import { EventDiceOverlay } from './components/EventDiceOverlay';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { BoardRuleModal } from './components/BoardRuleModal';
 import { AudioMixer } from './components/AudioMixer';
+import { ChatPanel } from './components/ChatPanel';
 import { BridgeEdge } from './components/BridgeEdge';
 import { ToastNotification, type ToastData } from '../../components/ui/ToastNotification';
 import { useToast } from '../../hooks/useToast';
 import { useSoundSettings } from '../../hooks/useSoundSettings';
 import type { LastAction, LogEntry, PendingInteraction, Player } from '../../types/game';
-import type { NodeData, MinigameAction, StealAction } from '../../types/board';
+import type { NodeData, MinigameAction, StealAction, RouletteAction, CardAction } from '../../types/board';
 import {
   movePlayer, movePlayerBack, processAction, checkGoal,
   calculateRanking, createLog, getNodeById,
@@ -68,9 +72,10 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const lastSeenLogId = useRef<string | null>(null);
   const { addToast } = useToast();
-  const { settings: soundSettings, setSettings: setSoundSettings, playSe, playBgm, stopBgm } = useSoundSettings();
+  const { playSe, playBgm, stopBgm } = useSoundSettings();
   const logContainerRef = useRef<HTMLDivElement>(null);
   const lastActionTimestamp = useRef<number>(0);
+  const startTime = useRef<number>(Date.now());
   const navigate = useNavigate();
 
   // 初回参加処理
@@ -443,6 +448,17 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     const allGoaled = Object.values(updatedPlayers).every(p => p.hasGoal);
     if (allGoaled) {
       playSe('goal');
+      
+      // 全員ゴール時の統計送信（ローカルプレイヤー分）
+      const me = updatedPlayers[localPlayerId];
+      if (me && me.hasGoal) {
+        recordBoardStats(boardId, {
+          isGoal: true,
+          landedNodes: me.moveHistory || [],
+          playTimeSeconds: Math.floor((Date.now() - startTime.current) / 1000),
+        }).catch(console.error);
+      }
+
       await updateGameState(roomId, {
         logs: [...logs, createLog('🏆 全員ゴール！ゲーム終了！')],
         [`players.${updatedPlayer.id}`]: updatedPlayer,
@@ -532,6 +548,15 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
         updatedPlayer.rank = goalOrder;
         logs.push(createLog(`🏁 ${updatedPlayer.name} が ${goalOrder}位でゴール！！`, 'action'));
         playSe('goal');
+
+        // 自分がゴールした瞬間に統計を送信
+        if (updatedPlayer.id === localPlayerId) {
+          recordBoardStats(boardId, {
+            isGoal: true,
+            landedNodes: updatedPlayer.moveHistory || [],
+            playTimeSeconds: Math.floor((Date.now() - startTime.current) / 1000),
+          }).catch(console.error);
+        }
         break; 
       }
 
@@ -735,6 +760,137 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     });
   }, [gameState, boardData, advanceTurn]);
 
+  // イベントダイスの結果処理
+  const handleEventDiceComplete = useCallback(async (result: number) => {
+    if (!gameState || !boardData) return;
+    const interaction = gameState.pendingInteraction;
+    if (!interaction) return;
+    const player = gameState.players[interaction.playerId];
+    let updatedPlayer = { ...player };
+    const logs = [...gameState.logs, createLog(`🎲 イベントサイコロ: ${result}`, 'action')];
+
+    if (interaction.action?.type === 'diceParam') {
+      const action = interaction.action;
+      const paramName = boardData.settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
+      const amount = result * action.multiplier;
+      updatedPlayer = { ...player, params: { ...player.params } };
+      updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + amount;
+      logs.push(createLog(`${player.name} の ${paramName} が ${amount >= 0 ? '+' : ''}${amount}`, 'action'));
+      await advanceTurn(updatedPlayer, logs, {
+        guard: { currentPlayerId: interaction.playerId, pending: { type: 'diceRoll', playerId: interaction.playerId } },
+      });
+    } else {
+      // diceMove
+      const moveResult = movePlayer(player.position, result, boardData.nodes, boardData.edges);
+      const updatedMoveHistory = [...(player.moveHistory || [player.position]), ...moveResult.passedNodeIds];
+      await animateMove(interaction.playerId, moveResult.passedNodeIds);
+      
+      updatedPlayer = { ...player, position: moveResult.finalNodeId, moveHistory: updatedMoveHistory };
+      
+      if (moveResult.needsBranchChoice && moveResult.branchOptions) {
+        await updateGameState(roomId, {
+          logs,
+          [`players.${interaction.playerId}`]: updatedPlayer,
+          pendingInteraction: {
+            playerId: interaction.playerId,
+            type: 'branch',
+            nodeId: moveResult.finalNodeId,
+            branchOptions: moveResult.branchOptions,
+          },
+        }, { currentPlayerId: interaction.playerId, pending: { type: 'diceRoll', playerId: interaction.playerId } });
+        return;
+      }
+      
+      await processLanding(moveResult.finalNodeId, updatedPlayer, logs, {
+        guard: { currentPlayerId: interaction.playerId, pending: { type: 'diceRoll', playerId: interaction.playerId } },
+      });
+    }
+  }, [gameState, boardData, advanceTurn, processLanding, animateMove, roomId]);
+
+  // ルーレットの結果処理
+  const handleRouletteResult = useCallback(async (choiceId: string) => {
+    if (!gameState || !boardData) return;
+    const interaction = gameState.pendingInteraction;
+    if (!interaction || !interaction.action || interaction.action.type !== 'roulette') return;
+    const choice = interaction.action.choices.find(c => c.id === choiceId);
+    if (!choice) return;
+
+    const player = gameState.players[interaction.playerId];
+    let updatedPlayer = { ...player };
+    const logs = [...gameState.logs, createLog(`🎡 ルーレット結果: ${choice.label}`, 'action')];
+    const extraUpdates: Record<string, unknown> = {};
+
+    // 当たった時のアクションを実行
+    for (const subAction of choice.actions) {
+      const result = processAction(subAction, updatedPlayer, gameState, boardData.nodes, boardData.edges, boardData.settings);
+      updatedPlayer = result.updatedPlayer;
+      logs.push(...result.logs);
+      Object.assign(extraUpdates, result.extraUpdates);
+      if (result.warpTarget) updatedPlayer.position = result.warpTarget;
+    }
+
+    if (updatedPlayer.position !== player.position) {
+      await processLanding(updatedPlayer.position, updatedPlayer, logs, {
+        extraUpdates,
+        guard: { currentPlayerId: interaction.playerId, pending: { type: 'roulette', playerId: interaction.playerId } },
+      });
+    } else {
+      await advanceTurn(updatedPlayer, logs, {
+        extraUpdates,
+        guard: { currentPlayerId: interaction.playerId, pending: { type: 'roulette', playerId: interaction.playerId } },
+      });
+    }
+  }, [gameState, boardData, processLanding, advanceTurn]);
+
+  // カードの結果処理
+  const handleCardResult = useCallback(async (cardId: string) => {
+    if (!gameState || !boardData) return;
+    const interaction = gameState.pendingInteraction;
+    if (!interaction || !interaction.action || interaction.action.type !== 'card') return;
+    const card = interaction.action.cards.find(c => c.id === cardId);
+    if (!card) return;
+
+    const player = gameState.players[interaction.playerId];
+    let updatedPlayer = { ...player };
+    const logs = [...gameState.logs, createLog(`🃏 カード効果: ${card.title}`, 'action')];
+    const extraUpdates: Record<string, unknown> = {};
+
+    for (const subAction of card.actions) {
+      const result = processAction(subAction, updatedPlayer, gameState, boardData.nodes, boardData.edges, boardData.settings);
+      updatedPlayer = result.updatedPlayer;
+      logs.push(...result.logs);
+      Object.assign(extraUpdates, result.extraUpdates);
+      if (result.warpTarget) updatedPlayer.position = result.warpTarget;
+    }
+
+    if (updatedPlayer.position !== player.position) {
+      await processLanding(updatedPlayer.position, updatedPlayer, logs, {
+        extraUpdates,
+        guard: { currentPlayerId: interaction.playerId, pending: { type: 'card', playerId: interaction.playerId } },
+      });
+    } else {
+      await advanceTurn(updatedPlayer, logs, {
+        extraUpdates,
+        guard: { currentPlayerId: interaction.playerId, pending: { type: 'card', playerId: interaction.playerId } },
+      });
+    }
+  }, [gameState, boardData, processLanding, advanceTurn]);
+
+  // チャット送信処理
+  const handleSendMessage = useCallback(async (message: string) => {
+    if (!gameState || !localPlayerId) return;
+    const player = gameState.players[localPlayerId];
+    if (!player) return;
+
+    await updateGameState(roomId, {
+      logs: [...gameState.logs, createLog(message, 'chat', { 
+        id: player.id, 
+        name: player.name, 
+        icon: player.icon 
+      })],
+    });
+  }, [gameState, roomId, localPlayerId]);
+
   const currentPlayer = gameState?.playerOrder && gameState?.players 
     ? gameState.players[gameState.playerOrder[gameState.currentTurnIndex]] 
     : undefined;
@@ -748,7 +904,13 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       ? 'ミニゲーム待ち'
       : pending?.type === 'steal'
         ? 'ターゲット選択待ち'
-        : '';
+        : pending?.type === 'diceRoll'
+          ? 'サイコロ待ち'
+          : pending?.type === 'roulette'
+            ? 'ルーレット待ち'
+            : pending?.type === 'card'
+              ? 'カード待ち'
+              : '';
 
   // キーボード操作：Spaceキーでサイコロ
   useEffect(() => {
@@ -810,28 +972,64 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       )}
 
       {/* 分岐選択 */}
-      {pending?.type === 'branch' && isPendingMine && pending.branchOptions && (
+      {pending?.type === 'branch' && pending.branchOptions && (
         <BranchChoice
           options={pending.branchOptions}
           onSelect={handleBranchSelect}
+          disabled={!isPendingMine}
+          playerName={pendingPlayerName}
         />
       )}
 
       {/* ミニゲーム */}
-      {pending?.type === 'minigame' && isPendingMine && pending.action && (pending.action as MinigameAction).gameType && (
+      {pending?.type === 'minigame' && pending.action && (pending.action as MinigameAction).gameType && (
         <MinigameDialog
           action={pending.action as MinigameAction}
           onResult={handleMinigameResult}
+          isOwner={isPendingMine}
+          playerName={pendingPlayerName}
         />
       )}
 
       {/* スティール（奪う）ダイアログ */}
-      {pending?.type === 'steal' && isPendingMine && pending.stealTargets && pending.action && (
+      {pending?.type === 'steal' && pending.stealTargets && pending.action && (
         <StealDialog
           targets={pending.stealTargets}
           players={gameState.players}
           action={pending.action as StealAction}
           onSelect={handleStealSelect}
+          isOwner={isPendingMine}
+          playerName={pendingPlayerName}
+        />
+      )}
+
+      {/* イベントダイス */}
+      {pending?.type === 'diceRoll' && (
+        <EventDiceOverlay
+          diceType={boardData.settings.diceType}
+          onRollComplete={handleEventDiceComplete}
+          isOwner={isPendingMine}
+          playerName={pendingPlayerName}
+        />
+      )}
+
+      {/* ルーレット */}
+      {pending?.type === 'roulette' && pending.action && (
+        <RouletteOverlay
+          action={pending.action as RouletteAction}
+          onResult={handleRouletteResult}
+          isOwner={isPendingMine}
+          playerName={pendingPlayerName}
+        />
+      )}
+
+      {/* カードドロー */}
+      {pending?.type === 'card' && pending.action && (
+        <CardDrawOverlay
+          action={pending.action as CardAction}
+          onResult={handleCardResult}
+          isOwner={isPendingMine}
+          playerName={pendingPlayerName}
         />
       )}
 
@@ -893,6 +1091,15 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
               >
                 {showPlayerPanel ? 'プレイヤー窓を隠す' : 'プレイヤー窓を表示'}
               </button>
+
+              {/* チャットパネル */}
+              <div className="mt-4 ml-2 pointer-events-auto">
+                <ChatPanel 
+                  logs={gameState.logs} 
+                  onSendMessage={handleSendMessage} 
+                  localPlayerId={localPlayerId} 
+                />
+              </div>
             </div>
 
             <div className="pointer-events-auto hidden sm:flex flex-col items-end relative">
@@ -955,7 +1162,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
                   className="bg-white/90 backdrop-blur-md shadow-xl rounded-2xl p-4 flex flex-col gap-4 w-64 border border-slate-100"
                 >
                   <h3 className="text-sm font-bold text-slate-700 pb-2 border-b border-slate-100">⚙️ ゲーム設定</h3>
-                  <AudioMixer settings={soundSettings} onChange={setSoundSettings} />
+                  <AudioMixer />
                   
                   {gameState.players[localPlayerId]?.isHost && (
                     <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
@@ -997,7 +1204,19 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
                   <button
                     onClick={() => {
-                      if (window.confirm('本当に退出しますか？')) navigate('/');
+                      if (window.confirm('本当に退出しますか？')) {
+                        // 途中退出の統計を記録
+                        const me = gameState.players[localPlayerId];
+                        if (me && !me.hasGoal) {
+                          recordBoardStats(boardId, {
+                            isGoal: false,
+                            landedNodes: me.moveHistory || [],
+                            retireNodeId: me.position,
+                            playTimeSeconds: Math.floor((Date.now() - startTime.current) / 1000),
+                          }).catch(console.error);
+                        }
+                        navigate('/');
+                      }
                     }}
                     className="flex items-center justify-center gap-2 text-sm font-bold text-red-500 hover:bg-red-50 p-2 rounded-xl transition-colors mt-2"
                   >

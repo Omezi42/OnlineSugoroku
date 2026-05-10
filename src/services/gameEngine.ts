@@ -6,8 +6,20 @@ import type { GameState, Player, LogEntry, PendingInteraction } from '../types/g
 // === ユーティリティ ===
 
 // ログエントリを生成
-export function createLog(message: string, type: LogEntry['type'] = 'system'): LogEntry {
-  return { id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, timestamp: Date.now(), message, type };
+export function createLog(
+  message: string, 
+  type: LogEntry['type'] = 'system',
+  senderInfo?: { id: string; name: string; icon: string }
+): LogEntry {
+  return { 
+    id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, 
+    timestamp: Date.now(), 
+    message, 
+    type,
+    senderId: senderInfo?.id,
+    senderName: senderInfo?.name,
+    senderIcon: senderInfo?.icon,
+  };
 }
 
 // 指定ノードから出ているエッジ一覧を取得
@@ -170,21 +182,33 @@ const ACTION_HANDLERS: Record<
     return { updatedPlayer, logs };
   },
 
-  diceMove: (_action, player, { settings }) => {
-    const roll = rollDice(settings.diceType);
-    const logs = [createLog(`${player.name} がイベントサイコロで ${roll} を出した！`, 'action')];
-    return { updatedPlayer: player, logs, additionalMoveSteps: roll, additionalMoveDirection: 'forward' };
+  diceMove: (_action, player) => {
+    // 演出のためにここではサイコロを振らず、PendingInteractionを返す
+    const logs = [createLog(`${player.name} がイベントサイコロを振る！`, 'action')];
+    return {
+      updatedPlayer: player,
+      logs,
+      pendingInteraction: {
+        playerId: player.id,
+        type: 'diceRoll',
+        nodeId: player.position,
+      },
+    };
   },
 
-  diceParam: (action, player, { settings }) => {
-    const updatedPlayer = { ...player, params: { ...player.params } };
-    const roll = rollDice(settings.diceType);
-    const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
-    const amount = roll * action.multiplier;
-    updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + amount;
-    const sign = amount >= 0 ? '+' : '';
-    const logs = [createLog(`${player.name} がイベントサイコロで ${roll} を出した！ ${paramName} ${sign}${amount}（→ ${updatedPlayer.params[action.paramId]}）`, 'action')];
-    return { updatedPlayer, logs };
+  diceParam: (action, player) => {
+    // 演出のためにここではサイコロを振らず、PendingInteractionを返す
+    const logs = [createLog(`${player.name} がイベントサイコロを振る！`, 'action')];
+    return {
+      updatedPlayer: player,
+      logs,
+      pendingInteraction: {
+        playerId: player.id,
+        type: 'diceRoll',
+        nodeId: player.position,
+        action,
+      },
+    };
   },
 
   goalBonus: (_action, player, { gameState, settings }) => {
@@ -296,6 +320,34 @@ const ACTION_HANDLERS: Record<
       pendingInteraction: {
         playerId: player.id,
         type: 'minigame',
+        nodeId: player.position,
+        action,
+      },
+    };
+  },
+
+  roulette: (action, player) => {
+    const logs = [createLog(`🎡 ${player.name} がルーレットを回す！`, 'action')];
+    return {
+      updatedPlayer: player,
+      logs,
+      pendingInteraction: {
+        playerId: player.id,
+        type: 'roulette',
+        nodeId: player.position,
+        action,
+      },
+    };
+  },
+
+  card: (action, player) => {
+    const logs = [createLog(`🃏 ${player.name} がカードを引く！`, 'action')];
+    return {
+      updatedPlayer: player,
+      logs,
+      pendingInteraction: {
+        playerId: player.id,
+        type: 'card',
         nodeId: player.position,
         action,
       },

@@ -12,6 +12,7 @@ import { AuthPanel } from '../auth/AuthPanel';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { getLocalOwnerId } from '../../services/localIdentity';
 import { useToast } from '../../hooks/useToast';
+import { BackgroundDecor } from '../../components/ui/BackgroundDecor';
 
 const categories = [
   { value: 'all', label: 'すべて' },
@@ -220,10 +221,9 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-slate-50 p-4">
-      <div className="absolute top-[-12%] left-[-8%] w-[36rem] h-[36rem] bg-pink-300/25 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-12%] right-[-8%] w-[42rem] h-[42rem] bg-cyan-300/25 rounded-full blur-3xl pointer-events-none" />
-      <motion.div className="relative z-10 mx-auto max-w-6xl py-10" variants={containerVariants} initial="hidden" animate="visible">
+    <div className="min-h-screen relative overflow-x-hidden">
+      <BackgroundDecor />
+      <motion.div className="relative z-10 mx-auto max-w-6xl py-10 px-4" variants={containerVariants} initial="hidden" animate="visible">
         <motion.div variants={itemVariants} className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
           <div className="text-center lg:text-left">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel text-sm font-medium text-purple-700 mb-5 shadow-sm border border-white/50">

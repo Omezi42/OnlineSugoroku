@@ -27,6 +27,8 @@ interface EditorState extends HistorySnapshot {
   updateNodeData: (id: string, data: Partial<NodeData>) => void;
   updateNodesData: (ids: string[], data: Partial<NodeData>) => void;
   updateNode: (id: string, updates: Partial<Node<NodeData>>) => void;
+  updateEdge: (id: string, updates: Partial<Edge>) => void;
+  updateEdgeLabel: (id: string, label: string) => void;
   removeNode: (id: string) => void;
   updateBoardSettings: (settings: Partial<BoardSettings>) => void;
 
@@ -401,11 +403,29 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
-  updateNode: (id, updates) => {
+  updateNode: (id: string, updates) => {
     set((state) => ({
       ...pushHistory(state),
       nodes: state.nodes.map((node) =>
         node.id === id ? { ...node, ...updates } : node
+      ),
+    }));
+  },
+
+  updateEdge: (id, updates) => {
+    set((state) => ({
+      ...pushHistory(state),
+      edges: state.edges.map((edge) =>
+        edge.id === id ? { ...edge, ...updates } : edge
+      ),
+    }));
+  },
+
+  updateEdgeLabel: (id, label) => {
+    set((state) => ({
+      ...pushHistory(state),
+      edges: state.edges.map((edge) =>
+        edge.id === id ? { ...edge, label } : edge
       ),
     }));
   },

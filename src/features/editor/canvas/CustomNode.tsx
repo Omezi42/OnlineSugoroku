@@ -97,7 +97,10 @@ export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData,
   }
 
   return (
-    <div
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      layoutId={id}
       onPointerUp={onPointerUp}
       className={cn(
         'relative flex flex-col items-center justify-center rounded-2xl shadow-lg transition-transform',
@@ -186,6 +189,6 @@ export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData,
         id="left"
         className={handleClass}
       />
-    </div>
+    </motion.div>
   );
 };

@@ -3,7 +3,7 @@ import { useEditorStore } from '../store';
 import type {
   Action, ActionType, ParamChangeAction, MoveNAction, BackNAction,
   RestAction, WarpAction, ConditionBranchAction, RandomBranchAction,
-  StealAction, MinigameAction, DiceParamAction, Operator,
+  StealAction, MinigameAction, DiceParamAction, RouletteAction, CardAction, Operator,
 } from '../../../types/board';
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -20,6 +20,8 @@ const actionLabels: Record<ActionType, string> = {
   randomBranch: '🎰 ランダム分岐',
   steal: '💰 プレイヤー干渉（奪う）',
   minigame: '🎮 ミニゲーム',
+  roulette: '🎡 ルーレット',
+  card: '🃏 カードドロー',
 };
 
 // サブアクション（ミニゲームの勝利時・敗北時など）を編集するためのコンポーネント
@@ -101,12 +103,14 @@ interface ActionEditorItemProps {
 const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const { boardSettings, nodes, edges } = useEditorStore();
-  const currentNode = nodes.find((node) => node.data.actions?.includes(action));
+  const currentNode = nodes.find((node) => node.data.actions?.some(a => JSON.stringify(a) === JSON.stringify(action)));
   const outgoingEdges = currentNode ? edges.filter((edge) => edge.source === currentNode.id) : [];
   const edgeLabel = (edgeId: string) => {
     const edge = edges.find((item) => item.id === edgeId);
-    const target = edge ? nodes.find((node) => node.id === edge.target) : undefined;
-    return target?.data.label || edge?.label?.toString() || edgeId;
+    if (!edge) return edgeId;
+    if (edge.label) return `${edge.label} (${edgeId.substring(0, 4)})`;
+    const target = nodes.find((node) => node.id === edge.target);
+    return target?.data.label || `接続先: ${edge.target.substring(0, 4)}...`;
   };
 
   return (
@@ -400,6 +404,182 @@ const ActionEditorItem = ({ action, onUpdate, onRemove }: ActionEditorItemProps)
             </div>
           )}
 
+          {action.type === 'roulette' && (
+            <div className="space-y-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-slate-500 font-bold">ルーレットのタイトル</label>
+                <input
+                  type="text"
+                  className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                  value={(action as RouletteAction).title}
+                  onChange={(e) => onUpdate({ ...action, title: e.target.value } as RouletteAction)}
+                  placeholder="何が出るかな？"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-slate-500 font-bold">選択肢設定</label>
+                {(action as RouletteAction).choices.map((choice, cIdx) => (
+                  <div key={choice.id} className="p-2 border border-slate-100 rounded-lg bg-slate-50/30 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        className="w-8 h-8 rounded border-none p-0 cursor-pointer"
+                        value={choice.color}
+                        onChange={(e) => {
+                          const newChoices = [...(action as RouletteAction).choices];
+                          newChoices[cIdx] = { ...choice, color: e.target.value };
+                          onUpdate({ ...action, choices: newChoices } as RouletteAction);
+                        }}
+                      />
+                      <input
+                        type="text"
+                        className="flex-1 p-1 text-xs rounded border border-slate-200"
+                        value={choice.label}
+                        onChange={(e) => {
+                          const newChoices = [...(action as RouletteAction).choices];
+                          newChoices[cIdx] = { ...choice, label: e.target.value };
+                          onUpdate({ ...action, choices: newChoices } as RouletteAction);
+                        }}
+                      />
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-slate-400">重み</span>
+                        <input
+                          type="number"
+                          className="w-10 p-1 text-xs rounded border border-slate-200"
+                          value={choice.weight}
+                          onChange={(e) => {
+                            const newChoices = [...(action as RouletteAction).choices];
+                            newChoices[cIdx] = { ...choice, weight: Number(e.target.value) };
+                            onUpdate({ ...action, choices: newChoices } as RouletteAction);
+                          }}
+                        />
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const newChoices = (action as RouletteAction).choices.filter((_, i) => i !== cIdx);
+                          onUpdate({ ...action, choices: newChoices } as RouletteAction);
+                        }}
+                        className="p-1 text-red-400 hover:text-red-600"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <SubActionEditor
+                      label="当選時の効果"
+                      actions={choice.actions || []}
+                      onUpdate={(subActions) => {
+                        const newChoices = [...(action as RouletteAction).choices];
+                        newChoices[cIdx] = { ...choice, actions: subActions };
+                        onUpdate({ ...action, choices: newChoices } as RouletteAction);
+                      }}
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    const newChoice = { id: `choice-${Date.now()}`, label: '新しい項目', color: '#6366f1', weight: 1, actions: [] };
+                    onUpdate({ ...action, choices: [...(action as RouletteAction).choices, newChoice] } as RouletteAction);
+                  }}
+                  className="w-full py-1 border border-dashed border-slate-300 text-slate-500 rounded text-[10px] hover:bg-slate-50"
+                >
+                  + 選択肢を追加
+                </button>
+              </div>
+            </div>
+          )}
+
+          {action.type === 'card' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-slate-500 font-bold">タイトル</label>
+                  <input
+                    type="text"
+                    className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                    value={(action as CardAction).title}
+                    onChange={(e) => onUpdate({ ...action, title: e.target.value } as CardAction)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-slate-500 font-bold">デッキ名</label>
+                  <input
+                    type="text"
+                    className="w-full p-1.5 text-sm rounded-lg border border-slate-200 bg-white/50"
+                    value={(action as CardAction).deckName}
+                    onChange={(e) => onUpdate({ ...action, deckName: e.target.value } as CardAction)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-slate-500 font-bold">カードリスト</label>
+                {(action as CardAction).cards.map((card, cIdx) => (
+                  <div key={card.id} className="p-2 border border-slate-100 rounded-lg bg-slate-50/30 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        className="w-6 h-6 rounded border-none p-0 cursor-pointer"
+                        value={card.color}
+                        onChange={(e) => {
+                          const newCards = [...(action as CardAction).cards];
+                          newCards[cIdx] = { ...card, color: e.target.value };
+                          onUpdate({ ...action, cards: newCards } as CardAction);
+                        }}
+                      />
+                      <input
+                        type="text"
+                        className="flex-1 p-1 text-xs font-bold rounded border border-slate-200"
+                        value={card.title}
+                        onChange={(e) => {
+                          const newCards = [...(action as CardAction).cards];
+                          newCards[cIdx] = { ...card, title: e.target.value };
+                          onUpdate({ ...action, cards: newCards } as CardAction);
+                        }}
+                        placeholder="カード名"
+                      />
+                      <button 
+                        onClick={() => {
+                          const newCards = (action as CardAction).cards.filter((_, i) => i !== cIdx);
+                          onUpdate({ ...action, cards: newCards } as CardAction);
+                        }}
+                        className="p-1 text-red-400 hover:text-red-600"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <textarea
+                      className="w-full p-1 text-[10px] rounded border border-slate-200 h-12"
+                      value={card.description}
+                      onChange={(e) => {
+                        const newCards = [...(action as CardAction).cards];
+                        newCards[cIdx] = { ...card, description: e.target.value };
+                        onUpdate({ ...action, cards: newCards } as CardAction);
+                      }}
+                      placeholder="カードの説明文..."
+                    />
+                    <SubActionEditor
+                      label="使用時の効果"
+                      actions={card.actions || []}
+                      onUpdate={(subActions) => {
+                        const newCards = [...(action as CardAction).cards];
+                        newCards[cIdx] = { ...card, actions: subActions };
+                        onUpdate({ ...action, cards: newCards } as CardAction);
+                      }}
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    const newCard = { id: `card-${Date.now()}`, title: '新しいカード', description: '説明を入力...', color: '#3b82f6', actions: [] };
+                    onUpdate({ ...action, cards: [...(action as CardAction).cards, newCard] } as CardAction);
+                  }}
+                  className="w-full py-1 border border-dashed border-slate-300 text-slate-500 rounded text-[10px] hover:bg-slate-50"
+                >
+                  + カードを追加
+                </button>
+              </div>
+            </div>
+          )}
+
           {(action.type === 'diceMove' || action.type === 'goalBonus') && (
             <p className="text-xs text-slate-400 italic">追加設定はありません</p>
           )}
@@ -425,6 +605,15 @@ function createDefaultAction(type: ActionType): Action {
     case 'randomBranch': return { type, probability: 50 };
     case 'steal': return { type, target: 'random', paramId, amount: 100 };
     case 'minigame': return { type, gameType: 'janken', winActions: [], loseActions: [] };
+    case 'roulette': return { type, title: '何が出るかな？', choices: [
+      { id: '1', label: '大成功', color: '#ef4444', weight: 1, actions: [] },
+      { id: '2', label: '成功', color: '#10b981', weight: 3, actions: [] },
+      { id: '3', label: '失敗', color: '#6b7280', weight: 2, actions: [] }
+    ] };
+    case 'card': return { type, title: 'カードを引く', deckName: 'イベントカード', cards: [
+      { id: '1', title: 'ラッキー', description: '何か良いことが起きるかも？', color: '#f59e0b', actions: [] },
+      { id: '2', title: 'アンラッキー', description: 'ちょっと不運なことが...', color: '#6366f1', actions: [] }
+    ] };
     default: return { type: 'paramChange', paramId, amount: 0 };
   }
 }

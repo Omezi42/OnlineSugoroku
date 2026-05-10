@@ -13,7 +13,7 @@ export type WinConditionType = 'speed' | 'status';
 // 条件分岐の演算子
 export type Operator = '>' | '>=' | '==' | '<=' | '<';
 
-// 12種類のアクション定義
+// 12種類+αのアクション定義
 export type ActionType =
   | 'paramChange'     // パラメータ増減
   | 'moveN'           // Nマス進む
@@ -26,7 +26,9 @@ export type ActionType =
   | 'conditionBranch' // 条件分岐
   | 'randomBranch'    // ランダム分岐
   | 'steal'           // プレイヤー干渉（奪う）
-  | 'minigame';       // ミニゲーム
+  | 'minigame'        // ミニゲーム
+  | 'roulette'        // ルーレット
+  | 'card';           // カードドロー
 
 export interface BaseAction {
   type: ActionType;
@@ -65,7 +67,6 @@ export interface DiceParamAction extends BaseAction {
 
 export interface GoalBonusAction extends BaseAction {
   type: 'goalBonus';
-  // 順位ごとのボーナス設定（BoardSettingで一括設定するパターンもあるが、マスごとに設定する場合）
 }
 
 export interface WarpAction extends BaseAction {
@@ -84,7 +85,7 @@ export interface ConditionBranchAction extends BaseAction {
 
 export interface RandomBranchAction extends BaseAction {
   type: 'randomBranch';
-  probability: number; // 0-100
+  probability: number;
   successEdgeId?: string;
   failureEdgeId?: string;
 }
@@ -105,6 +106,37 @@ export interface MinigameAction extends BaseAction {
   loseEdgeId?: string;
 }
 
+export interface RouletteChoice {
+  id: string;
+  label: string;
+  color: string;
+  weight: number;
+  actions: Action[];
+}
+
+export interface RouletteAction extends BaseAction {
+  type: 'roulette';
+  title: string;
+  choices: RouletteChoice[];
+}
+
+export interface CardItem {
+  id: string;
+  title: string;
+  description: string;
+  image?: string;
+  color: string;
+  actions: Action[];
+}
+
+export interface CardAction extends BaseAction {
+  type: 'card';
+  title: string;
+  deckName: string;
+  cards: CardItem[];
+  backImage?: string;
+}
+
 export type Action =
   | ParamChangeAction
   | MoveNAction
@@ -117,7 +149,9 @@ export type Action =
   | ConditionBranchAction
   | RandomBranchAction
   | StealAction
-  | MinigameAction;
+  | MinigameAction
+  | RouletteAction
+  | CardAction;
 
 // カスタムパラメータ定義
 export interface ParameterDef {
@@ -132,16 +166,16 @@ export interface BoardSettings {
   diceType: DiceType;
   winCondition: {
     type: WinConditionType;
-    targetParamId?: string; // statusの場合に対象となるパラメータID
+    targetParamId?: string;
   };
-  goalRewards: Record<number, Record<string, number>>; // { 1(位): { "money": 1000 } }
+  goalRewards: Record<number, Record<string, number>>;
   background: 'dot' | 'grid' | 'none';
   bgmType?: string;
   areas: AreaDef[];
   reducedMotion: boolean;
 }
 
-// エリア定義（盤面を視覚的に区切る）
+// エリア定義
 export interface AreaDef {
   id: string;
   name: string;
@@ -154,14 +188,13 @@ export interface NodeData extends Record<string, unknown> {
   label: string;
   description: string;
   nodeType: NodeType;
-  image?: string; // Base64
-  color?: string; // カスタムカラー
+  image?: string;
+  color?: string;
   size: NodeSize;
-  isStop: boolean; // 必ず止まるマスかどうか
+  isStop: boolean;
   actions: Action[];
   areaColor?: string;
   areaWidth?: number;
   areaHeight?: number;
-  // --- 動的データ (プレイ時のみ) ---
   playersOnNode?: { id: string; name: string; icon: string; isMe?: boolean }[];
 }

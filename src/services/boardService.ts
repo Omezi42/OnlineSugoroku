@@ -19,6 +19,13 @@ export interface BoardData {
   isPublic?: boolean;
   allowPublicEdit?: boolean; // 共同編集の許可
   reportCount?: number;
+  stats?: {
+    playCount: number;
+    goalCount: number;
+    nodeLandings: Record<string, number>; // nodeId -> count
+    retirePoints: Record<string, number>; // nodeId -> count (脱落地点)
+    totalPlayTimeSeconds: number;
+  };
   createdAt?: unknown;
   updatedAt?: unknown;
 }
@@ -32,6 +39,15 @@ export interface BoardRevision {
   settings: BoardSettings;
   createdAt: unknown;
   note?: string;
+}
+
+export interface EditorPresence {
+  id: string;
+  name: string;
+  color: string;
+  cursor: { x: number; y: number };
+  selectedNodeId: string | null;
+  lastActive: number;
 }
 
 const BOARDS_COLLECTION = 'boards';
@@ -209,7 +225,53 @@ export const getRevisions = async (boardId: string): Promise<BoardRevision[]> =>
 
 export const markBoardPlayed = async (boardId: string) => {
   const docRef = doc(db, BOARDS_COLLECTION, boardId);
-  await setDoc(docRef, { playCount: increment(1), updatedAt: serverTimestamp() }, { merge: true });
+  await updateDoc(docRef, { 
+    playCount: increment(1), 
+    'stats.playCount': increment(1),
+    updatedAt: serverTimestamp() 
+  });
+};
+
+export const recordBoardStats = async (
+  boardId: string, 
+  data: { 
+    isGoal: boolean; 
+    landedNodes: string[]; 
+    retireNodeId?: string;
+    playTimeSeconds: number;
+  }
+) => {
+  const docRef = doc(db, BOARDS_COLLECTION, boardId);
+  const updates: Record<string, any> = {
+    'stats.totalPlayTimeSeconds': increment(data.playTimeSeconds),
+    updatedAt: serverTimestamp(),
+  };
+
+  if (data.isGoal) {
+    updates['stats.goalCount'] = increment(1);
+  }
+  
+  if (data.retireNodeId) {
+    updates[`stats.retirePoints.${data.retireNodeId}`] = increment(1);
+  }
+
+  // ノードごとの着地数を更新 (大量にある場合は個別updateが必要だが、一旦まとめて)
+  data.landedNodes.forEach(nodeId => {
+    updates[`stats.nodeLandings.${nodeId}`] = increment(1);
+  });
+
+  await updateDoc(docRef, updates).catch(async () => {
+    // statsフィールド自体が存在しない場合は初期化
+    await setDoc(docRef, { 
+      stats: {
+        playCount: 1,
+        goalCount: data.isGoal ? 1 : 0,
+        nodeLandings: data.landedNodes.reduce((acc, id) => ({ ...acc, [id]: 1 }), {}),
+        retirePoints: data.retireNodeId ? { [data.retireNodeId]: 1 } : {},
+        totalPlayTimeSeconds: data.playTimeSeconds
+      }
+    }, { merge: true });
+  });
 };
 
 export const deleteBoard = async (boardId: string) => {
@@ -239,4 +301,23 @@ export const cloneBoard = async (board: BoardData, newOwnerId: string, newOwnerN
 export const reportBoard = async (boardId: string) => {
   const docRef = doc(db, BOARDS_COLLECTION, boardId);
   await setDoc(docRef, { reportCount: increment(1) }, { merge: true });
+};
+
+// エディターのプレゼンス更新
+export const updateEditorPresence = async (boardId: string, presence: EditorPresence) => {
+  const docRef = doc(db, BOARDS_COLLECTION, boardId, 'presence', presence.id);
+  await setDoc(docRef, { ...presence, lastActive: Date.now() });
+};
+
+// エディターのプレゼンス購読
+export const subscribeToEditorPresence = (boardId: string, onUpdate: (presence: EditorPresence[]) => void): () => void => {
+  const collRef = collection(db, BOARDS_COLLECTION, boardId, 'presence');
+  return onSnapshot(collRef, (snap) => {
+    const now = Date.now();
+    const presences = snap.docs
+      .map(d => d.data() as EditorPresence)
+      // 1分以上更新がないものは除外
+      .filter(p => now - p.lastActive < 60000);
+    onUpdate(presences);
+  });
 };

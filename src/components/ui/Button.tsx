@@ -38,8 +38,9 @@ export const Button = ({
 
   return (
     <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={{ scale: 1.05, y: -2 }}
+      whileTap={{ scale: 0.95, y: 0 }}
+      transition={{ type: "spring", stiffness: 400, damping: 10 }}
       className={cn(baseStyles, variants[variant], sizes[size], className)}
       {...props}
     >

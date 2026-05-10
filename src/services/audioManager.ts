@@ -1,14 +1,18 @@
 
-export type SoundEffect = 'dice' | 'step' | 'coin' | 'lose' | 'event' | 'goal' | 'click';
+export type SoundEffect = 'dice' | 'step' | 'coin' | 'lose' | 'event' | 'goal' | 'click' | 'roulette' | 'roulette_stop' | 'card' | 'win';
 
 const SE_URLS: Record<SoundEffect, string> = {
-  dice: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3', // Short click
-  step: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // Subtle bubble/pop
-  coin: 'https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3', // Soft ping
-  lose: 'https://assets.mixkit.co/active_storage/sfx/2002/2002-preview.mp3', // Simple dull thud
-  event: 'https://assets.mixkit.co/active_storage/sfx/2567/2567-preview.mp3', // Soft chime
-  goal: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // Cheerful but short success
-  click: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3', // Same as dice for simplicity
+  dice: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
+  step: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
+  coin: 'https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3',
+  lose: 'https://assets.mixkit.co/active_storage/sfx/2002/2002-preview.mp3',
+  event: 'https://assets.mixkit.co/active_storage/sfx/2567/2567-preview.mp3',
+  goal: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
+  click: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
+  roulette: 'https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3', // Clicky spin
+  roulette_stop: 'https://assets.mixkit.co/active_storage/sfx/2567/2567-preview.mp3', // Bell
+  card: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // Pop/Flip
+  win: 'https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3', // Victory fanfare
 };
 
 export type BGMType = 'none' | 'chill' | 'ambient' | 'lofi' | 'cafe';

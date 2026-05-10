@@ -4,13 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEditorStore } from '../store';
 import {
   Download, Upload, CheckCircle, AlertTriangle, Search, X, Undo2, Redo2,
-  Rows3, Workflow, CircleDot, Maximize2, Magnet,
+  Rows3, Workflow, CircleDot, Maximize2, Magnet, BarChart3,
 } from 'lucide-react';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { validateBoard, type ValidationResult } from '../utils/boardValidation';
 import { importBoardData } from '../utils/boardImport';
 
-export const EditorToolbar = () => {
+export const EditorToolbar = ({ showAnalytics, setShowAnalytics }: { showAnalytics?: boolean, setShowAnalytics?: (v: boolean) => void }) => {
   const {
     nodes, edges, past, future, snapToGrid,
     undo, redo, copySelected, pasteClipboard, applyLayout, setSnapToGrid,
@@ -191,6 +191,16 @@ export const EditorToolbar = () => {
           >
             <Search className="w-4 h-4" />
             <span className="hidden sm:inline">検索</span>
+          </button>
+
+          <button
+            onClick={() => setShowAnalytics && setShowAnalytics(!showAnalytics)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-colors ${
+              showAnalytics ? 'bg-indigo-100 text-indigo-700' : 'bg-white/70 hover:bg-white text-slate-700'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span className="hidden sm:inline">分析</span>
           </button>
 
           <div className="w-px h-6 bg-slate-200 mx-1" />

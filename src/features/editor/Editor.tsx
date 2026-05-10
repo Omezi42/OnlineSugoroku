@@ -7,16 +7,18 @@ import { Sidebar } from './panels/Sidebar';
 import { NodeConfigPanel } from './panels/NodeConfigPanel';
 import { EditorToolbar } from './components/EditorToolbar';
 import { useEditorStore } from './store';
-import { canEditBoard, loadBoard, saveBoard, subscribeToBoard, saveRevision } from '../../services/boardService';
+import { canEditBoard, loadBoard, saveBoard, subscribeToBoard, saveRevision, updateEditorPresence, subscribeToEditorPresence, type EditorPresence } from '../../services/boardService';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { History, Share2, Check, Copy, Globe2, Loader2, Play, X, Home, Menu, Settings, Sparkles } from 'lucide-react';
 import { RevisionHistoryPanel } from './panels/RevisionHistoryPanel';
 import { BoardSettingsPanel } from './panels/BoardSettingsPanel';
 import { EditorTutorial } from './components/EditorTutorial';
 import { validateBoard } from './utils/boardValidation';
+import { AnalyticsPanel } from './panels/AnalyticsPanel';
 import { useAuthUser } from '../../hooks/useAuthUser';
 import { getLocalOwnerId } from '../../services/localIdentity';
 import { useToast } from '../../hooks/useToast';
+import { BackgroundDecor } from '../../components/ui/BackgroundDecor';
 
 const categories = [
   { value: 'party', label: 'パーティー' },
@@ -59,7 +61,10 @@ export default function Editor() {
   const [showBoardSettings, setShowBoardSettings] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showTutorial, setShowTutorial] = useState(() => !localStorage.getItem('has_seen_editor_tutorial'));
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [remotePresences, setRemotePresences] = useState<EditorPresence[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [fullBoardData, setFullBoardData] = useState<any>(null);
   const { addToast } = useToast();
 
   const location = useLocation();
@@ -130,6 +135,7 @@ export default function Editor() {
           edges: board.edges,
           boardSettings: board.settings,
         });
+        setFullBoardData(board);
         setDraftAvailable(Boolean(localStorage.getItem(draftKey)));
         if (!editable) {
           alert('この盤面は閲覧できます。保存すると、自分用のコピーとして作成します。');
@@ -143,6 +149,15 @@ export default function Editor() {
       });
     return () => { cancelled = true; };
   }, [draftKey, localOwnerId, navigate, routeBoardId, user?.uid]);
+
+  // プレゼンス購読
+  useEffect(() => {
+    if (!currentBoardId) return;
+    const unsubscribe = subscribeToEditorPresence(currentBoardId, (presences) => {
+      setRemotePresences(presences.filter(p => p.id !== localOwnerId));
+    });
+    return unsubscribe;
+  }, [currentBoardId, localOwnerId]);
 
   useEffect(() => {
     if (draftAvailable || isLoadingBoard) return;
@@ -383,7 +398,8 @@ export default function Editor() {
 
   return (
     <ReactFlowProvider>
-      <div id="tutorial-root" className="flex h-screen w-full bg-slate-50 overflow-hidden relative">
+      <div id="tutorial-root" className="flex h-screen w-full overflow-hidden relative">
+        <BackgroundDecor />
         {isLoadingBoard && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/70 backdrop-blur-sm">
             <div className="glass-panel rounded-2xl px-6 py-4 flex items-center gap-3 font-bold text-slate-700 shadow-xl">
@@ -412,10 +428,28 @@ export default function Editor() {
           )}
         </div>
 
-        <EditorToolbar />
+        <EditorToolbar 
+          showAnalytics={showAnalytics}
+          setShowAnalytics={setShowAnalytics}
+        />
 
         <div className="flex-1 relative overflow-hidden">
-          <Canvas />
+          <Canvas 
+            onCursorMove={(cursor) => {
+              if (currentBoardId && canEdit) {
+                const selectedNode = nodes.find(n => n.selected);
+                updateEditorPresence(currentBoardId, {
+                  id: localOwnerId,
+                  name: user?.displayName || user?.email || 'ゲスト編集者',
+                  color: '#a855f7',
+                  cursor,
+                  selectedNodeId: selectedNode?.id || null,
+                  lastActive: Date.now(),
+                });
+              }
+            }}
+            remotePresences={remotePresences}
+          />
           
           <AnimatePresence>
             {hasSelection && (
@@ -693,6 +727,21 @@ export default function Editor() {
                 </GlassCard>
               </motion.div>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showAnalytics && fullBoardData && (
+            <AnalyticsPanel 
+              boardData={{
+                ...fullBoardData,
+                nodes,
+                edges,
+                settings: boardSettings,
+                name: boardName
+              }}
+              onClose={() => setShowAnalytics(false)} 
+            />
           )}
         </AnimatePresence>
 

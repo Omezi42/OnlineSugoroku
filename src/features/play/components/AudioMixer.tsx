@@ -1,54 +1,53 @@
-import { Volume2, VolumeX } from 'lucide-react';
-import type { SoundSettings } from '../../../hooks/useSoundSettings';
+import { useSoundSettings } from '../../../hooks/useSoundSettings';
+import { Volume2, VolumeX, Music } from 'lucide-react';
 
-interface AudioMixerProps {
-  settings: SoundSettings;
-  onChange: (settings: SoundSettings) => void;
-}
+export const AudioMixer = () => {
+  const { settings, setSettings } = useSoundSettings();
 
-export const AudioMixer = ({ settings, onChange }: AudioMixerProps) => {
-  const update = (patch: Partial<SoundSettings>) => onChange({ ...settings, ...patch });
+  const toggleMute = () => {
+    setSettings({ ...settings, muted: !settings.muted });
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSettings({ ...settings, master: parseFloat(e.target.value) });
+  };
 
   return (
-    <div className="rounded-2xl bg-white/90 p-3 text-xs shadow-lg backdrop-blur-md">
-      <button
-        onClick={() => update({ muted: !settings.muted })}
-        className="mb-2 flex w-full items-center justify-between rounded-xl bg-white px-3 py-2 font-bold text-slate-700"
-      >
-        <span className="flex items-center gap-2">
-          {settings.muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          音量ミキサー
-        </span>
-        <span>{settings.muted ? 'ミュート' : 'ON'}</span>
-      </button>
-      {[
-        ['master', 'マスター'],
-        ['bgm', 'BGM'],
-        ['se', 'SE'],
-      ].map(([key, label]) => (
-        <label key={key} className="mb-2 grid grid-cols-[64px_1fr_36px] items-center gap-2 text-slate-600">
-          <span>{label}</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={settings[key as keyof SoundSettings] as number}
-            onChange={(event) => update({ [key]: Number(event.target.value) })}
-            className="accent-purple-500"
-          />
-          <span className="text-right">{Math.round((settings[key as keyof SoundSettings] as number) * 100)}</span>
-        </label>
-      ))}
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex items-center gap-1 rounded-xl bg-white px-2 py-1">
-          <input type="checkbox" checked={settings.bgmEnabled} onChange={(event) => update({ bgmEnabled: event.target.checked })} />
-          BGM
-        </label>
-        <label className="flex items-center gap-1 rounded-xl bg-white px-2 py-1">
-          <input type="checkbox" checked={settings.seEnabled} onChange={(event) => update({ seEnabled: event.target.checked })} />
-          SE
-        </label>
+    <div className="flex flex-col gap-4 w-full">
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <span>音量</span>
+            <span>{Math.round(settings.master * 100)}%</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={toggleMute} className="text-purple-600 hover:scale-110 transition-transform">
+              {settings.muted || settings.master === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            </button>
+            <input 
+              type="range" 
+              min="0" 
+              max="1" 
+              step="0.01" 
+              value={settings.master}
+              onChange={handleVolumeChange}
+              className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-2 bg-slate-50/50 rounded-xl border border-slate-100">
+          <div className="flex items-center gap-2">
+            <Music size={14} className="text-slate-400" />
+            <span className="text-xs font-medium text-slate-600">BGM有効</span>
+          </div>
+          <button 
+            onClick={() => setSettings({ ...settings, bgmEnabled: !settings.bgmEnabled })}
+            className={`w-10 h-5 rounded-full transition-colors relative ${settings.bgmEnabled ? 'bg-purple-500' : 'bg-slate-300'}`}
+          >
+            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${settings.bgmEnabled ? 'left-6' : 'left-1'}`} />
+          </button>
+        </div>
       </div>
     </div>
   );

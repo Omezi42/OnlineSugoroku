@@ -24,12 +24,15 @@ export interface LogEntry {
   timestamp: number;
   message: string;
   type: 'system' | 'move' | 'action' | 'chat';
+  senderId?: string;
+  senderName?: string;
+  senderIcon?: string;
 }
 
 // 分岐やインタラクションなど、ユーザーの入力を待っている状態
 export interface PendingInteraction {
   playerId: string;
-  type: 'branch' | 'steal' | 'minigame';
+  type: 'branch' | 'steal' | 'minigame' | 'diceRoll' | 'roulette' | 'card';
   nodeId: string; // 発生したマス
   // branchの場合の選択肢（EdgeのIDなど）
   branchOptions?: { edgeId: string; targetNodeId: string; label?: string }[];
@@ -37,12 +40,14 @@ export interface PendingInteraction {
   stealTargets?: string[];
   // アクションの詳細
   action?: Action; 
+  // イベント用ダイスの設定
+  diceResult?: number;
 }
 
 // 直近の行動記録（同期アニメーション用）
 export interface LastAction {
   playerId: string;
-  type: 'roll' | 'move' | 'action';
+  type: 'roll' | 'move' | 'action' | 'roulette' | 'card';
   value?: number;
   path?: string[];
   timestamp: number;
