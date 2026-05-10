@@ -35,6 +35,14 @@ export const AISimulatorPanel = () => {
     const nodeVisits: Record<string, number> = {};
     const goalTurns: number[] = [];
     
+    // スタートノードを探す
+    const startNode = nodes.find(n => n.data.nodeType === 'start');
+    if (!startNode) {
+      setIsSimulating(false);
+      alert('スタート地点が見つかりません。盤面にスタートマスを配置してください。');
+      return;
+    }
+
     // シミュレーション実行 (UIをフリーズさせないよう分割)
     for (let g = 0; g < numGames; g++) {
       if (g % 10 === 0) {
@@ -43,7 +51,7 @@ export const AISimulatorPanel = () => {
       }
 
       let turns = 0;
-      let playerPos = 'start-node';
+      let playerPos = startNode.id;
       const playerParams: Record<string, number> = {};
       boardSettings.parameters.forEach(p => playerParams[p.id] = p.initialValue);
       
@@ -52,8 +60,28 @@ export const AISimulatorPanel = () => {
         turns++;
         
         // サイコロ
-        const steps = rollDice(boardSettings.diceType);
-        const moveResult = movePlayer(playerPos, steps, nodes, edges);
+        let steps = rollDice(boardSettings.diceType);
+        let moveResult = movePlayer(playerPos, steps, nodes, edges);
+        
+        // 分岐の自動選択
+        while (moveResult.needsBranchChoice && moveResult.branchOptions && moveResult.branchOptions.length > 0) {
+          const randomOption = moveResult.branchOptions[Math.floor(Math.random() * moveResult.branchOptions.length)];
+          // 通過したマスを記録
+          moveResult.passedNodeIds.forEach(id => {
+            nodeVisits[id] = (nodeVisits[id] || 0) + 1;
+          });
+          
+          // 選んだルートの先から残りの歩数分進む
+          const remaining = moveResult.remainingSteps;
+          playerPos = randomOption.targetNodeId;
+          nodeVisits[playerPos] = (nodeVisits[playerPos] || 0) + 1;
+          
+          if (remaining > 0) {
+            moveResult = movePlayer(playerPos, remaining, nodes, edges);
+          } else {
+            break;
+          }
+        }
         
         // 移動途中のマスを記録
         moveResult.passedNodeIds.forEach(id => {
@@ -67,12 +95,6 @@ export const AISimulatorPanel = () => {
         if (checkGoal(playerPos, nodes)) {
           goalTurns.push(turns);
           break;
-        }
-
-        // マスのアクション実行
-        const node = nodes.find(n => n.id === playerPos);
-        if (node?.data.actions) {
-          // シミュレーション用の簡易処理（将来的に拡張可能）
         }
       }
     }

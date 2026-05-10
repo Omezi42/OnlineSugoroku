@@ -49,11 +49,11 @@ export const Dice = ({ diceType, onRollComplete, disabled = false, reducedMotion
 
     if (!shouldReduceMotion) {
       await controls.start({
-        y: [0, -60, 0],
-        rotateX: [0, 360, 720],
-        rotateY: [0, 540, 1080],
-        scale: [1, 1.1, 1],
-        transition: { duration: 0.8, ease: "easeInOut" }
+        y: [0, -80, 0],
+        rotateX: [0, 360, 540],
+        rotateY: [0, 360, 720],
+        scale: [1, 1.15, 1],
+        transition: { duration: 1.2, ease: "easeOut" }
       });
     }
 
@@ -67,7 +67,7 @@ export const Dice = ({ diceType, onRollComplete, disabled = false, reducedMotion
       rotateZ: finalRot.z,
       transition: shouldReduceMotion
         ? { duration: 0.05 }
-        : { duration: 0.4, type: "spring", stiffness: 260, damping: 20 }
+        : { duration: 0.6, type: "spring", stiffness: 200, damping: 25 }
     });
 
     setTimeout(() => {
