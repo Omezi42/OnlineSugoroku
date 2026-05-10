@@ -4,7 +4,6 @@ import { useEditorStore } from '../store';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { Play, RotateCcw, BarChart3, Clock, AlertTriangle, X, Info } from 'lucide-react';
 import { movePlayer, rollDice, checkGoal } from '../../../services/gameEngine';
-import type { Player } from '../../../types/game';
 
 interface SimResult {
   totalGames: number;

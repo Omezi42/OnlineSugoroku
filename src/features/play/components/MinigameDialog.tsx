@@ -259,7 +259,7 @@ const MashingGame = ({ onResult, isOwner, playerName }: { onResult: (won: boolea
       setTimeLeft(remaining);
       if (remaining <= 0) {
         clearInterval(interval);
-        finish(startAt);
+        finish();
       }
     }, 50);
   };
