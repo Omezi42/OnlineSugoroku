@@ -133,6 +133,18 @@ export const Canvas = ({
             setConnectionSourceId(node.id);
           }
         }}
+        onNodePointerUp={(_e, node) => {
+          // 接続モードまたは右クリックドラッグ中の接続完了
+          if (connectionSourceId && connectionSourceId !== node.id && node.data.nodeType !== 'area') {
+            onConnect({ 
+              source: connectionSourceId, 
+              target: node.id, 
+              sourceHandle: null, 
+              targetHandle: null 
+            });
+            setConnectionSourceId(null);
+          }
+        }}
         nodeTypes={nodeTypes}
         onDragOver={onDragOver}
         onDrop={onDrop}
@@ -204,34 +216,50 @@ export const Canvas = ({
           </AnimatePresence>
         </div>
 
-        {/* 右クリックドラッグ中の接続線 */}
-        {sourceNode && (
-          <svg className="absolute inset-0 pointer-events-none overflow-visible z-50">
-            <line
-              x1={sourceNode.position.x + 64} 
-              y1={sourceNode.position.y + 64}
-              x2={mousePos.x}
-              y2={mousePos.y}
-              stroke="#a855f7"
-              strokeWidth="4"
-              strokeDasharray="8,8"
-              markerEnd="url(#connection-arrow)"
-            />
-            <defs>
-              <marker
-                id="connection-arrow"
-                markerWidth="10"
-                markerHeight="10"
-                refX="5"
-                refY="5"
-                orient="auto"
-              >
-                <path d="M0,0 L10,5 L0,10 Z" fill="#a855f7" />
-              </marker>
-            </defs>
-          </svg>
-        )}
+        {/* 右クリックドラッグ中の接続線 (Viewport内に配置して追従させる) */}
+        <ConnectionOverlay sourceNode={sourceNode} mousePos={mousePos} />
       </ReactFlow>
     </div>
+  );
+};
+
+const ConnectionOverlay = ({ sourceNode, mousePos }: { sourceNode: any, mousePos: { x: number, y: number } }) => {
+  const { x, y, zoom } = useReactFlow().getViewport();
+  
+  if (!sourceNode) return null;
+
+  const startX = sourceNode.position.x + (sourceNode.measured?.width || 128) / 2;
+  const startY = sourceNode.position.y + (sourceNode.measured?.height || 128) / 2;
+
+  return (
+    <svg 
+      className="absolute inset-0 pointer-events-none overflow-visible z-50"
+      style={{ width: '100%', height: '100%' }}
+    >
+      <g transform={`translate(${x},${y}) scale(${zoom})`}>
+        <line
+          x1={startX} 
+          y1={startY}
+          x2={mousePos.x}
+          y2={mousePos.y}
+          stroke="#a855f7"
+          strokeWidth={4 / zoom}
+          strokeDasharray={`${8 / zoom},${8 / zoom}`}
+          markerEnd="url(#connection-arrow)"
+        />
+        <defs>
+          <marker
+            id="connection-arrow"
+            markerWidth="10"
+            markerHeight="10"
+            refX="5"
+            refY="5"
+            orient="auto"
+          >
+            <path d="M0,0 L10,5 L0,10 Z" fill="#a855f7" />
+          </marker>
+        </defs>
+      </g>
+    </svg>
   );
 };

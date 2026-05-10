@@ -49,14 +49,6 @@ export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData,
     }
   };
 
-  const onPointerUp = (e: React.PointerEvent) => {
-    if (connectionSourceId && connectionSourceId !== id && data.nodeType !== 'area') {
-      e.stopPropagation();
-      onConnect({ source: connectionSourceId, target: id, sourceHandle: null, targetHandle: null });
-      setConnectionSourceId(null);
-    }
-  };
-
   // 視認性のための文字色判定
   const textColor = data.color 
     ? getContrastColor(data.color) 
@@ -69,7 +61,6 @@ export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData,
   if (data.nodeType === 'area') {
     return (
       <div
-        onPointerUp={onPointerUp}
         className={cn(
           'relative rounded-3xl border-2 border-dashed shadow-inner backdrop-blur-[2px] transition-all',
           selected ? 'border-purple-400 ring-4 ring-purple-200' : 'border-white/70'
@@ -112,7 +103,6 @@ export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData,
       animate={{ scale: 1, opacity: 1 }}
       layoutId={id}
       onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
       className={cn(
         'relative flex flex-col items-center justify-center rounded-2xl shadow-lg transition-transform',
         typeColors[data.nodeType],

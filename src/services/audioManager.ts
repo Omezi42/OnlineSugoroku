@@ -3,16 +3,16 @@ export type SoundEffect = 'dice' | 'step' | 'coin' | 'lose' | 'event' | 'goal' |
 
 const SE_URLS: Record<SoundEffect, string> = {
   dice: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
-  step: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
-  coin: 'https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3',
-  lose: 'https://assets.mixkit.co/active_storage/sfx/2002/2002-preview.mp3',
-  event: 'https://assets.mixkit.co/active_storage/sfx/2567/2567-preview.mp3',
-  goal: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
-  click: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
-  roulette: 'https://assets.mixkit.co/active_storage/sfx/2569/2569-preview.mp3', // Clicky spin
-  roulette_stop: 'https://assets.mixkit.co/active_storage/sfx/2567/2567-preview.mp3', // Bell
-  card: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // Pop/Flip
-  win: 'https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3', // Victory fanfare
+  step: 'https://www.soundjay.com/buttons/button-20.mp3',
+  coin: 'https://www.soundjay.com/buttons/button-37.mp3',
+  lose: 'https://www.soundjay.com/buttons/button-10.mp3',
+  event: 'https://www.soundjay.com/buttons/button-28.mp3',
+  goal: 'https://www.soundjay.com/buttons/button-3.mp3',
+  click: 'https://www.soundjay.com/buttons/button-50.mp3',
+  roulette: 'https://www.soundjay.com/buttons/button-29.mp3',
+  roulette_stop: 'https://www.soundjay.com/buttons/button-9.mp3',
+  card: 'https://www.soundjay.com/buttons/button-14.mp3',
+  win: 'https://www.soundjay.com/buttons/button-4.mp3',
 };
 
 export type BGMType = 'none' | 'chill' | 'ambient' | 'lofi' | 'cafe';

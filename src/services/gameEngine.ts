@@ -27,6 +27,11 @@ export function getOutgoingEdges(nodeId: string, edges: Edge[]): Edge[] {
   return edges.filter(e => e.source === nodeId);
 }
 
+// 指定ノードに入っているエッジ一覧を取得
+export function getIncomingEdges(nodeId: string, edges: Edge[]): Edge[] {
+  return edges.filter(e => e.target === nodeId);
+}
+
 // エッジのターゲットノードを取得
 export function getNodeById(nodeId: string, nodes: Node<NodeData>[]): Node<NodeData> | undefined {
   return nodes.find(n => n.id === nodeId);
@@ -43,8 +48,7 @@ export interface MoveResult {
 }
 
 /**
- * プレイヤーを指定歩数だけ進める
- * 分岐がある場合はneedsBranchChoice=trueを返す
+ * プレイヤーを指定歩数だけ進める（または戻す）
  */
 export function movePlayer(
   currentNodeId: string,
@@ -54,37 +58,28 @@ export function movePlayer(
 ): MoveResult {
   let nodeId = currentNodeId;
   const passed: string[] = [];
-  let remaining = steps;
+  const isBackward = steps < 0;
+  const absSteps = Math.abs(steps);
+  let remaining = absSteps;
 
-  for (let i = 0; i < steps; i++) {
-    const outgoing = getOutgoingEdges(nodeId, edges);
+  for (let i = 0; i < absSteps; i++) {
+    const nextEdges = isBackward 
+      ? getIncomingEdges(nodeId, edges)
+      : getOutgoingEdges(nodeId, edges);
 
-    if (outgoing.length === 0) {
-      // 行き止まり → ここで止まる
-      break;
-    }
+    if (nextEdges.length === 0) break;
 
-    if (outgoing.length > 1) {
-      // プレイヤーによる手動分岐。ただし、自動分岐アクションがある場合はそちらを優先するためここでは停止する
+    // 分岐処理 (戻る場合は常に最初の1つ、進む場合は分岐判定)
+    if (!isBackward && nextEdges.length > 1) {
       const node = getNodeById(nodeId, nodes);
       const hasAutoBranch = node?.data.actions?.some(a => a.type === 'conditionBranch' || a.type === 'randomBranch');
-
       if (hasAutoBranch) {
-        return {
-          finalNodeId: nodeId,
-          passedNodeIds: passed,
-          remainingSteps: remaining,
-          needsBranchChoice: false,
-        };
+        return { finalNodeId: nodeId, passedNodeIds: passed, remainingSteps: remaining, needsBranchChoice: false };
       }
-
-      // 手動分岐の選択肢を提示
       return {
-        finalNodeId: nodeId,
-        passedNodeIds: passed,
-        remainingSteps: remaining,
+        finalNodeId: nodeId, passedNodeIds: passed, remainingSteps: remaining,
         needsBranchChoice: true,
-        branchOptions: outgoing.map(e => ({
+        branchOptions: nextEdges.map(e => ({
           edgeId: e.id,
           targetNodeId: e.target,
           label: getNodeById(e.target, nodes)?.data.label || e.target,
@@ -92,8 +87,8 @@ export function movePlayer(
       };
     }
 
-    // 1本道 → 進む
-    const nextNodeId = outgoing[0].target;
+    // 移動実行
+    const nextNodeId = isBackward ? nextEdges[0].source : nextEdges[0].target;
     const nextNode = getNodeById(nextNodeId, nodes);
     passed.push(nextNodeId);
     nodeId = nextNodeId;
