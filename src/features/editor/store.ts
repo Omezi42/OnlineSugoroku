@@ -179,7 +179,7 @@ const createTemplate = (template: TemplateType): Pick<HistorySnapshot, 'nodes' |
       nodes.push(createNode(`party-${i}`, nd.label, nd.type as NodeType, x, y, '', (nd as any).actions));
       
       // 通常のエッジ接続（分岐マス以外）
-      if (i > 0 && i !== 5 && i !== 6 && i !== 15) {
+      if (i > 0 && ![5, 6, 7, 15, 16].includes(i)) {
         addEdgeHelper(`party-${i-1}`, `party-${i}`);
       }
     });

@@ -80,7 +80,8 @@ export const saveBoard = async (boardData: Omit<BoardData, 'createdAt' | 'update
     // 既存のドキュメントの場合は updateDoc を使用する
     // これにより、提供されたフィールド（nodes, edges, settingsなど）が完全に置き換わり、
     // 且つ管理外のフィールド（playCount, likeCountなど）が保持される
-    const { createdAt: _unused, ...updatePayload } = payload;
+    const updatePayload = { ...payload };
+    delete updatePayload.createdAt;
     await updateDoc(docRef, updatePayload);
   }
   return boardId;
@@ -218,7 +219,12 @@ export const deleteBoard = async (boardId: string) => {
 
 // 盤面の複製
 export const cloneBoard = async (board: BoardData, newOwnerId: string, newOwnerName: string): Promise<string> => {
-  const { id: _oldId, createdAt: _ca, updatedAt: _ua, playCount: _pc, reportCount: _rc, ...rest } = board;
+  const rest = { ...board };
+  delete rest.id;
+  delete rest.createdAt;
+  delete rest.updatedAt;
+  delete rest.playCount;
+  delete rest.reportCount;
   return await saveBoard({
     ...rest,
     name: `${board.name} (コピー)`,

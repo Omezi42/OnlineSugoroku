@@ -338,6 +338,14 @@ export const EditorToolbar = () => {
                 </p>
               )}
 
+              <div className="grid grid-cols-5 gap-1.5 rounded-xl bg-slate-50 p-2 text-center text-[10px] text-slate-500">
+                <div><b className="block text-sm text-slate-800">{validation.stats.nodes}</b>マス</div>
+                <div><b className="block text-sm text-slate-800">{validation.stats.edges}</b>ルート</div>
+                <div><b className="block text-sm text-slate-800">{validation.stats.actions}</b>効果</div>
+                <div><b className="block text-sm text-slate-800">{validation.stats.branches}</b>分岐</div>
+                <div><b className="block text-sm text-slate-800">{validation.stats.images}</b>画像</div>
+              </div>
+
               <button
                 onClick={() => setShowValidation(false)}
                 className="mt-4 w-full py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-medium transition-colors"

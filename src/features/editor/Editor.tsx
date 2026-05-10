@@ -25,6 +25,8 @@ const categories = [
   { value: 'challenge', label: 'チャレンジ' },
 ];
 
+const AUTOSAVE_DELAY_MS = 3000;
+
 export default function Editor() {
   const navigate = useNavigate();
   const { boardId: routeBoardId } = useParams();
@@ -63,6 +65,7 @@ export default function Editor() {
   const location = useLocation();
   const isUpdatingFromRemote = useRef(false);
   const lastLocalUpdate = useRef(0);
+  const lastSavedFingerprint = useRef('');
   
   // 常に最新の状態を参照するためのRef
   const stateRef = useRef({ boardName, boardDescription, authorName, isPublic, allowPublicEdit });
@@ -95,6 +98,7 @@ export default function Editor() {
             useEditorStore.getState().resetStore();
             setBoardName('無題のすごろく');
           }
+          setCurrentBoardId(null);
           setIsLoadingBoard(false);
           return;
         }
@@ -115,6 +119,17 @@ export default function Editor() {
         setCategory(board.category || 'party');
         setIsPublic(Boolean(board.isPublic));
         setAllowPublicEdit(Boolean(board.allowPublicEdit));
+        lastSavedFingerprint.current = JSON.stringify({
+          boardName: board.name || '無題のすごろく',
+          boardDescription: board.description || '',
+          authorName: board.authorName || '',
+          category: board.category || 'party',
+          isPublic: Boolean(board.isPublic),
+          allowPublicEdit: Boolean(board.allowPublicEdit),
+          nodes: board.nodes,
+          edges: board.edges,
+          boardSettings: board.settings,
+        });
         setDraftAvailable(Boolean(localStorage.getItem(draftKey)));
         if (!editable) {
           alert('この盤面は閲覧できます。保存すると、自分用のコピーとして作成します。');
@@ -184,6 +199,26 @@ export default function Editor() {
     setSyncStatus('saving');
     const timeoutId = setTimeout(async () => {
       try {
+        if (document.visibilityState === 'hidden') {
+          setSyncStatus('idle');
+          return;
+        }
+        const fingerprint = JSON.stringify({
+          boardName,
+          boardDescription,
+          authorName,
+          category,
+          isPublic,
+          allowPublicEdit,
+          nodes,
+          edges,
+          boardSettings,
+        });
+        if (fingerprint === lastSavedFingerprint.current) {
+          setSyncStatus('synced');
+          setTimeout(() => setSyncStatus('idle'), 1200);
+          return;
+        }
         lastLocalUpdate.current = Date.now();
         const ownerId = user?.uid || localOwnerId;
         const ownerName = user?.displayName || user?.email || authorName || 'ローカルユーザー';
@@ -201,12 +236,13 @@ export default function Editor() {
           isPublic,
           allowPublicEdit,
         });
+        lastSavedFingerprint.current = fingerprint;
         setSyncStatus('synced');
         setTimeout(() => setSyncStatus('idle'), 2000);
       } catch (error) {
         console.error('Auto-save failed:', error);
       }
-    }, 1500); // 1.5秒間操作がなければ保存
+    }, AUTOSAVE_DELAY_MS);
 
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, boardSettings, boardName, boardDescription, authorName, category, isPublic, allowPublicEdit, currentBoardId, isLoadingBoard, draftAvailable, canEdit]);
@@ -325,7 +361,17 @@ export default function Editor() {
 
 
   const handlePlayClick = async () => {
+    const validation = validateBoard(nodes, edges);
+    if (!validation.ok) {
+      addToast(`プレイ前チェック: ${validation.errors[0]}`, 'danger');
+      return;
+    }
+
     if (currentBoardId) {
+      if (canEdit) {
+        const savedId = await handleSave();
+        if (!savedId) return;
+      }
       navigate(`/play/${currentBoardId}/room-${Date.now().toString(36)}`);
     } else {
       const id = await handleSave();

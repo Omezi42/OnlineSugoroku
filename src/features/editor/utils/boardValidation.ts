@@ -5,6 +5,13 @@ export interface ValidationResult {
   ok: boolean;
   errors: string[];
   warnings: string[];
+  stats: {
+    nodes: number;
+    edges: number;
+    actions: number;
+    branches: number;
+    images: number;
+  };
 }
 
 export function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): ValidationResult {
@@ -14,6 +21,24 @@ export function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): Validatio
   const playableNodes = nodes.filter((node) => node.data.nodeType !== 'area');
   const nodeIds = new Set(playableNodes.map((node) => node.id));
   const edgeIds = new Set(edges.map((edge) => edge.id));
+  const stats = {
+    nodes: playableNodes.length,
+    edges: edges.length,
+    actions: playableNodes.reduce((total, node) => total + (node.data.actions?.length || 0), 0),
+    branches: playableNodes.reduce(
+      (total, node) => total + (node.data.actions?.filter((action) => action.type === 'conditionBranch' || action.type === 'randomBranch').length || 0),
+      0
+    ),
+    images: playableNodes.filter((node) => typeof node.data.image === 'string' && node.data.image.length > 0).length,
+  };
+
+  if (playableNodes.length > 200) {
+    warnings.push(`マスが${playableNodes.length}個あります。大規模盤面ではスマホで重くなる可能性があります`);
+  }
+
+  if (edges.length > 300) {
+    warnings.push(`ルートが${edges.length}本あります。分岐の多い盤面ではプレイ前チェックをおすすめします`);
+  }
 
   edges.forEach((edge) => {
     if (!nodeIds.has(edge.source)) errors.push(`存在しないマスからルートが伸びています: ${edge.source}`);
@@ -94,6 +119,21 @@ export function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): Validatio
 
   playableNodes.forEach((node) => {
     node.data.actions?.forEach((action) => {
+      if ((action.type === 'moveN' || action.type === 'backN') && action.amount <= 0) {
+        errors.push(`「${node.data.label}」の移動マス数は1以上にしてください`);
+      }
+      if (action.type === 'rest' && action.turns <= 0) {
+        errors.push(`「${node.data.label}」の休み回数は1以上にしてください`);
+      }
+      if (action.type === 'randomBranch' && (action.probability < 0 || action.probability > 100)) {
+        errors.push(`「${node.data.label}」のランダム分岐確率は0〜100にしてください`);
+      }
+      if (action.type === 'steal' && action.amount <= 0) {
+        errors.push(`「${node.data.label}」の奪う量は1以上にしてください`);
+      }
+      if (action.type === 'minigame' && action.winActions.length === 0 && action.loseActions.length === 0 && !action.winEdgeId && !action.loseEdgeId) {
+        warnings.push(`「${node.data.label}」のミニゲームに勝敗後の効果が設定されていません`);
+      }
       if (action.type === 'warp' && !nodeIds.has(action.targetNodeId)) {
         errors.push(`「${node.data.label}」のワープ先が見つかりません`);
       }
@@ -120,7 +160,11 @@ export function validateBoard(nodes: Node<NodeData>[], edges: Edge[]): Validatio
         }
       }
     });
+
+    if (typeof node.data.image === 'string' && node.data.image.length > 350_000) {
+      warnings.push(`「${node.data.label}」の画像が大きめです。読み込みやFirestore通信が重くなる可能性があります`);
+    }
   });
 
-  return { ok: errors.length === 0, errors, warnings };
+  return { ok: errors.length === 0, errors, warnings, stats };
 }

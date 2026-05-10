@@ -130,6 +130,7 @@ export interface ActionResult {
   additionalMoveDirection?: 'forward' | 'back';
   warpTarget?: string; // ワープ先ノードID
   branchTarget?: string; // 条件/ランダム分岐で選ばれた移動先
+  extraUpdates?: Record<string, unknown>; // 他プレイヤーなど、操作中プレイヤー以外への反映
 }
 
 /**
@@ -253,6 +254,10 @@ export function processAction(
       if (action.target === 'select') {
         // プレイヤー選択UIが必要
         const targets = Object.keys(gameState.players).filter(pid => pid !== player.id && !gameState.players[pid].hasGoal);
+        if (targets.length === 0) {
+          logs.push(createLog('対象にできるプレイヤーがいませんでした', 'action'));
+          return { updatedPlayer, logs };
+        }
         logs.push(createLog(`${player.name} が他プレイヤーから奪う！ターゲットを選択…`, 'action'));
         return {
           updatedPlayer,
@@ -275,6 +280,13 @@ export function processAction(
           const stolen = Math.min(action.amount, targetPlayer.params[action.paramId] || 0);
           updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + stolen;
           logs.push(createLog(`💰 ${player.name} が ${targetPlayer.name} から ${paramName} を ${stolen} 奪った！`, 'action'));
+          return {
+            updatedPlayer,
+            logs,
+            extraUpdates: {
+              [`players.${targetId}.params.${action.paramId}`]: (targetPlayer.params[action.paramId] || 0) - stolen,
+            },
+          };
         }
         return { updatedPlayer, logs };
       }

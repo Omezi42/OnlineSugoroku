@@ -12,6 +12,37 @@ service cloud.firestore {
       return data.ownerId == request.auth.uid || data.ownerId == request.resource.data.ownerId;
     }
 
+    function isSafeTimestamp(value) {
+      return value is timestamp || value is int || value is float;
+    }
+
+    function isValidGame(data) {
+      return data.keys().hasOnly([
+               'roomId',
+               'boardId',
+               'status',
+               'players',
+               'playerOrder',
+               'currentTurnIndex',
+               'logs',
+               'pendingInteraction',
+               'lastAction',
+               'createdAt',
+               'updatedAt'
+             ]) &&
+             data.roomId is string &&
+             data.boardId is string &&
+             data.status in ['waiting', 'playing', 'finished'] &&
+             data.players is map &&
+             data.playerOrder is list &&
+             data.playerOrder.size() <= 12 &&
+             data.currentTurnIndex is int &&
+             data.logs is list &&
+             data.logs.size() <= 80 &&
+             isSafeTimestamp(data.createdAt) &&
+             isSafeTimestamp(data.updatedAt);
+    }
+
     // Boards (盤面データ)
     match /boards/{boardId} {
       // 読み取り：公開されている、または自分が所有者（または共同編集URLを知っている）
@@ -41,8 +72,11 @@ service cloud.firestore {
 
     // Games / Rooms (プレイデータ)
     match /games/{gameId} {
-      // プレイデータは誰でもアクセス可能だが、データサイズに制限を設ける
-      allow read, write: if request.resource.data.size() < 1048576; // 1MB制限
+      // 匿名マルチプレイを維持しつつ、無料枠を圧迫する巨大ログや想定外フィールドを拒否する。
+      allow read: if true;
+      allow create, update: if isValidGame(request.resource.data) &&
+                              request.resource.data.size() < 1048576;
+      allow delete: if false;
     }
   }
 }

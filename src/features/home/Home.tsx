@@ -53,6 +53,7 @@ export default function Home() {
   const [searchText, setSearchText] = useState('');
   const [category, setCategory] = useState('all');
   const [sort, setSort] = useState<BoardSort>('recent');
+  const [showTemplates, setShowTemplates] = useState(false);
   const { addToast } = useToast();
 
   const fetchPublicBoards = useCallback(async () => {
@@ -169,7 +170,7 @@ export default function Home() {
                         addToast(newStatus ? '盤面を公開しました' : '盤面を非公開にしました', 'success');
                         fetchMyBoards();
                         fetchPublicBoards();
-                      } catch (err) {
+                      } catch {
                         addToast('設定の変更に失敗しました', 'danger');
                       }
                     }}
@@ -240,10 +241,19 @@ export default function Home() {
                 空から作る
               </Button>
               <div className="relative group w-full sm:w-auto">
-                <Button variant="glass" size="lg" icon={<Sparkles className="w-5 h-5" />} className="w-full sm:w-auto text-pink-600 border-pink-200 hover:bg-pink-50 group-hover:bg-pink-50">
+                <Button
+                  variant="glass"
+                  size="lg"
+                  icon={<Sparkles className="w-5 h-5" />}
+                  onClick={() => setShowTemplates((value) => !value)}
+                  className="w-full sm:w-auto text-pink-600 border-pink-200 hover:bg-pink-50 group-hover:bg-pink-50"
+                  aria-expanded={showTemplates}
+                >
                   テンプレから作る ▼
                 </Button>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 mt-2 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-30 p-2 flex flex-col gap-1">
+                <div className={`absolute top-full left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 mt-2 w-64 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 transition-all duration-200 z-30 p-2 flex flex-col gap-1 ${
+                  showTemplates ? 'opacity-100 visible' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
+                }`}>
                   <button onClick={() => navigate('/editor?template=party')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-pink-50 transition-colors">
                     <span className="font-bold text-slate-800">🎉 パーティー</span>
                     <span className="block text-xs text-slate-500 mt-0.5">ミニゲーム・ワープ満載！賑やかで波乱万丈な王道ルート（20マス超）</span>

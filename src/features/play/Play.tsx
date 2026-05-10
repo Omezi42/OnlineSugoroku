@@ -26,7 +26,7 @@ import { BridgeEdge } from './components/BridgeEdge';
 import { ToastNotification, type ToastData } from '../../components/ui/ToastNotification';
 import { useToast } from '../../hooks/useToast';
 import { useSoundSettings } from '../../hooks/useSoundSettings';
-import type { Player } from '../../types/game';
+import type { LastAction, LogEntry, PendingInteraction, Player } from '../../types/game';
 import type { NodeData, MinigameAction, StealAction } from '../../types/board';
 import {
   movePlayer, movePlayerBack, processAction, checkGoal,
@@ -39,6 +39,17 @@ const nodeTypes: Record<string, any> = {
 
 const edgeTypes = {
   bridge: BridgeEdge,
+};
+
+type CommitGuard = {
+  currentPlayerId?: string;
+  pending?: 'none' | { type: PendingInteraction['type']; playerId: string };
+};
+
+type CommitOptions = {
+  lastAction?: LastAction;
+  extraUpdates?: Record<string, unknown>;
+  guard?: CommitGuard;
 };
 
 function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
@@ -55,7 +66,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const [animatingPlayer, setAnimatingPlayer] = useState<{ id: string; position: string } | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const previousLogCount = useRef<number>(0);
+  const lastSeenLogId = useRef<string | null>(null);
   const { addToast } = useToast();
   const { settings: soundSettings, setSettings: setSoundSettings, playSe, playBgm, stopBgm } = useSoundSettings();
   const logContainerRef = useRef<HTMLDivElement>(null);
@@ -131,7 +142,6 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       cancelled = true; 
       stopBgm();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId, roomId]);
 
   // ゲーム終了検知とログ監視（トースト）
@@ -142,9 +152,12 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       setShowResultButton(true);
     }
 
-    // 新しいログがあればトースト表示
-    if (gameState.logs.length > previousLogCount.current) {
-      const newLogs = gameState.logs.slice(previousLogCount.current);
+    // 新しいログがあればトースト表示。ログは保存件数を絞るため、件数ではなくIDで追跡する。
+    const lastSeenIndex = lastSeenLogId.current
+      ? gameState.logs.findIndex((log) => log.id === lastSeenLogId.current)
+      : -1;
+    const newLogs = gameState.logs.slice(lastSeenIndex + 1);
+    if (newLogs.length > 0) {
       const actionLogs = newLogs.filter(log => log.type === 'action' || log.type === 'system');
       
       if (actionLogs.length > 0) {
@@ -159,7 +172,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
           }))
         ]);
       }
-      previousLogCount.current = gameState.logs.length;
+      lastSeenLogId.current = gameState.logs.at(-1)?.id ?? lastSeenLogId.current;
     }
 
     // ログの自動スクロール
@@ -191,20 +204,22 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
     // 自分のハートビートを更新 (15秒おきに緩和：通信量節約)
     const heartbeatInterval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       updatePlayerHeartbeat(roomId, localPlayerId).catch(console.error);
-    }, 15000);
+    }, 30000);
 
     // ホストの生存確認 (20秒おきに緩和)
     const migrationInterval = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       const players = Object.values(gameState.players);
       const currentHost = players.find(p => p.isHost);
       const now = Date.now();
       
       // ホストが30秒以上不在なら委譲を検討
-      if (!currentHost || (now - currentHost.lastActive > 30000)) {
+      if (!currentHost || (now - currentHost.lastActive > 90000)) {
         // 次のホスト候補を選出 (プレイヤーID順で一番若い生存プレイヤー)
         const activePlayers = players
-          .filter(p => now - p.lastActive < 15000)
+          .filter(p => now - p.lastActive < 60000)
           .sort((a, b) => a.id.localeCompare(b.id));
 
         if (activePlayers.length > 0 && activePlayers[0].id === localPlayerId) {
@@ -214,7 +229,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
           }).catch(console.error);
         }
       }
-    }, 10000);
+    }, 30000);
 
     return () => {
       clearInterval(heartbeatInterval);
@@ -277,11 +292,11 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       await updateGameState(roomId, {
         status: 'playing',
         logs: [...gameState.logs, createLog('🎮 ゲームスタート！')],
-      });
+      }, { hostPlayerId: localPlayerId });
     } finally {
       setIsProcessing(false);
     }
-  }, [gameState, roomId, isProcessing]);
+  }, [gameState, roomId, localPlayerId, isProcessing]);
 
   const handleUpdateName = useCallback(async (name: string) => {
     if (!gameState) return;
@@ -318,8 +333,8 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       currentTurnIndex: 0,
       pendingInteraction: null,
       logs: [...gameState.logs, createLog('🔄 ホストがゲームをリセットしました', 'system')],
-    } as any);
-  }, [boardData, gameState, roomId]);
+    } as any, { hostPlayerId: localPlayerId });
+  }, [boardData, gameState, roomId, localPlayerId]);
 
   const handleSkipTurn = useCallback(async () => {
     if (!gameState) return;
@@ -328,8 +343,8 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       currentTurnIndex: nextIndex,
       pendingInteraction: null,
       logs: [...gameState.logs, createLog('⏭️ ホストがターンを送りました', 'system')],
-    });
-  }, [gameState, roomId]);
+    }, { hostPlayerId: localPlayerId });
+  }, [gameState, roomId, localPlayerId]);
 
   const handleRemovePlayer = useCallback(async (playerId: string) => {
     if (!gameState) return;
@@ -345,8 +360,8 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       currentTurnIndex,
       pendingInteraction: gameState.pendingInteraction?.playerId === playerId ? null : gameState.pendingInteraction,
       logs: [...gameState.logs, createLog(`👋 ホストが ${player.name} を退出させました`, 'system')],
-    } as any);
-  }, [gameState, roomId]);
+    } as any, { hostPlayerId: localPlayerId });
+  }, [gameState, roomId, localPlayerId]);
 
   // マスクリック → 詳細パネル
   const handleNodeClick = useCallback((_: any, node: Node<NodeData>) => {
@@ -372,40 +387,41 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       // アニメーション実行
       await animateMove(currentPid, moveResult.passedNodeIds);
 
-      // 他のプレイヤーに同期
-      await updateGameState(roomId, {
-        lastAction: {
-          playerId: currentPid,
-          type: 'roll',
-          value: result,
-          path: moveResult.passedNodeIds,
-          timestamp: Date.now(),
-        }
-      } as any);
+      const lastAction: LastAction = {
+        playerId: currentPid,
+        type: 'roll',
+        value: result,
+        path: moveResult.passedNodeIds,
+        timestamp: Date.now(),
+      };
 
       if (moveResult.needsBranchChoice && moveResult.branchOptions) {
         // 分岐選択が必要
         await updateGameState(roomId, {
           logs,
+          lastAction,
           pendingInteraction: {
             playerId: currentPid,
             type: 'branch',
             nodeId: moveResult.finalNodeId,
             branchOptions: moveResult.branchOptions,
           },
-        });
+        }, { currentPlayerId: currentPid, pending: 'none' });
         return;
       }
 
       // 移動完了 → マスのアクション処理へ
-      await processLanding(moveResult.finalNodeId, player);
+      await processLanding(moveResult.finalNodeId, player, logs, {
+        lastAction,
+        guard: { currentPlayerId: currentPid, pending: 'none' },
+      });
     } finally {
       setIsProcessing(false);
     }
   }, [gameState, boardData, roomId, localPlayerId, playSe, isProcessing]);
 
   // ターンを進める
-  const advanceTurn = useCallback(async (updatedPlayer: Player, logs: any[]) => {
+  const advanceTurn = useCallback(async (updatedPlayer: Player, logs: LogEntry[], options: CommitOptions = {}) => {
     if (!gameState || !boardData) return;
 
     const updatedPlayers = { ...gameState.players, [updatedPlayer.id]: updatedPlayer };
@@ -419,7 +435,9 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
         [`players.${updatedPlayer.id}`]: updatedPlayer,
         status: 'finished',
         pendingInteraction: null,
-      } as any);
+        ...(options.lastAction ? { lastAction: options.lastAction } : {}),
+        ...options.extraUpdates,
+      } as any, options.guard);
       setShowResultButton(true);
       return;
     }
@@ -456,21 +474,36 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
       currentTurnIndex: nextIdx,
       pendingInteraction: null,
       ...restUpdates,
-    } as any);
+      ...(options.lastAction ? { lastAction: options.lastAction } : {}),
+      ...options.extraUpdates,
+    } as any, options.guard);
   }, [gameState, boardData, roomId, playSe]);
 
   // マスに着地した時の処理
-  const processLanding = useCallback(async (nodeId: string, player: Player) => {
+  const processLanding = useCallback(async (
+    nodeId: string,
+    player: Player,
+    initialLogs?: LogEntry[],
+    options: CommitOptions = {}
+  ) => {
     if (!gameState || !boardData) return;
 
     let updatedPlayer = { ...player, position: nodeId };
     let currentNodeId = nodeId;
-    let logs = [...gameState.logs];
+    const logs = [...(initialLogs ?? gameState.logs)];
+    const extraUpdates: Record<string, unknown> = { ...(options.extraUpdates ?? {}) };
     let safety = 0;
+    const maxChain = Math.max(boardData.nodes.length * 4, 32);
+    const visitedNodes = new Set<string>();
 
     // 連続着地（ワープや分岐）を処理するためのループ
-    while (safety < 10) {
+    while (safety < maxChain) {
       safety++;
+      if (visitedNodes.has(currentNodeId)) {
+        logs.push(createLog('イベントの連鎖が循環したため、安全のため停止しました', 'system'));
+        break;
+      }
+      visitedNodes.add(currentNodeId);
       const node = getNodeById(currentNodeId, boardData.nodes);
       if (!node) break;
 
@@ -493,6 +526,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
           const result = processAction(action, updatedPlayer, gameState, boardData.nodes, boardData.edges, boardData.settings);
           updatedPlayer = result.updatedPlayer;
           logs.push(...result.logs);
+          Object.assign(extraUpdates, result.extraUpdates);
 
           // アクション種類に応じたSE
           if (action.type === 'paramChange' && action.amount > 0) playSe('coin');
@@ -506,7 +540,9 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
               logs,
               [`players.${updatedPlayer.id}`]: updatedPlayer,
               pendingInteraction: result.pendingInteraction,
-            } as any);
+              ...(options.lastAction ? { lastAction: options.lastAction } : {}),
+              ...extraUpdates,
+            } as any, options.guard);
             return;
           }
 
@@ -553,7 +589,9 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
                     nodeId: additionalMove.finalNodeId,
                     branchOptions: additionalMove.branchOptions,
                   },
-                } as any);
+                  ...(options.lastAction ? { lastAction: options.lastAction } : {}),
+                  ...extraUpdates,
+                } as any, options.guard);
                 return;
               }
               updatedPlayer.position = additionalMove.finalNodeId;
@@ -578,7 +616,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     }
 
     // ターン終了 → 次のプレイヤーへ
-    await advanceTurn(updatedPlayer, logs);
+    await advanceTurn(updatedPlayer, logs, { ...options, extraUpdates });
   }, [gameState, boardData, roomId, playSe, animateMove, advanceTurn]);
 
   // 分岐選択の処理
@@ -589,17 +627,16 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     
     // ログを生成
     const logs = [...gameState.logs, createLog(`➡️ ${player.name} が「${getNodeById(targetNodeId, boardData.nodes)?.data.label || targetNodeId}」を選択`, 'move')];
-    // ここでlogsを使わずに直接updateGameState等に渡すか、あるいは後続で使う
-    // 今回はprocessLandingに渡さない設計になったため、必要に応じてログのみ更新する
-    await updateGameState(roomId, { logs } as any);
 
     setIsProcessing(true);
     try {
-      await processLanding(targetNodeId, player);
+      await processLanding(targetNodeId, player, logs, {
+        guard: { currentPlayerId: currentPid, pending: { type: 'branch', playerId: localPlayerId } },
+      });
     } finally {
       setIsProcessing(false);
     }
-  }, [gameState, boardData, roomId, isProcessing, processLanding]);
+  }, [gameState, boardData, localPlayerId, isProcessing, processLanding]);
 
 
   // ミニゲーム結果処理
@@ -611,6 +648,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     const player = gameState.players[interaction.playerId];
     let updatedPlayer = { ...player, params: { ...player.params } };
     const logs = [...gameState.logs];
+    const extraUpdates: Record<string, unknown> = {};
 
     logs.push(createLog(won ? `🎉 ${player.name} がミニゲームに勝利！` : `😢 ${player.name} がミニゲームに敗北...`, 'action'));
 
@@ -621,6 +659,7 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
         const result = processAction(subAction, updatedPlayer, gameState, boardData.nodes, boardData.edges, boardData.settings);
         updatedPlayer = result.updatedPlayer;
         logs.push(...result.logs);
+        Object.assign(extraUpdates, result.extraUpdates);
         // サブアクションでさらに移動が発生する場合の処理は複雑になるため、ここでは簡易的に位置更新のみ
         if (result.warpTarget) updatedPlayer.position = result.warpTarget;
         if (result.branchTarget) updatedPlayer.position = result.branchTarget;
@@ -640,11 +679,17 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
 
     // 移動が発生した場合は再着地処理を行う
     if (updatedPlayer.position !== player.position) {
-      await processLanding(updatedPlayer.position, updatedPlayer);
+      await processLanding(updatedPlayer.position, updatedPlayer, logs, {
+        extraUpdates,
+        guard: { currentPlayerId: interaction.playerId, pending: { type: 'minigame', playerId: interaction.playerId } },
+      });
     } else {
-      await advanceTurn(updatedPlayer, logs);
+      await advanceTurn(updatedPlayer, logs, {
+        extraUpdates,
+        guard: { currentPlayerId: interaction.playerId, pending: { type: 'minigame', playerId: interaction.playerId } },
+      });
     }
-  }, [gameState, boardData, roomId, processLanding, advanceTurn]);
+  }, [gameState, boardData, processLanding, advanceTurn]);
 
   // スティールターゲット選択処理
   const handleStealSelect = useCallback(async (targetPlayerId: string) => {
@@ -663,13 +708,13 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
     const paramName = boardData.settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
     logs.push(createLog(`💰 ${player.name} が ${targetPlayer.name} から ${paramName} を ${stolen} 奪った！`, 'action'));
 
-    // ターゲットのパラメータを減らす
-    await updateGameState(roomId, {
-      [`players.${targetPlayerId}.params.${action.paramId}`]: (targetPlayer.params[action.paramId] || 0) - stolen,
-    } as any);
-
-    await advanceTurn(updatedPlayer, logs);
-  }, [gameState, boardData, roomId]);
+    await advanceTurn(updatedPlayer, logs, {
+      extraUpdates: {
+        [`players.${targetPlayerId}.params.${action.paramId}`]: (targetPlayer.params[action.paramId] || 0) - stolen,
+      },
+      guard: { currentPlayerId: interaction.playerId, pending: { type: 'steal', playerId: interaction.playerId } },
+    });
+  }, [gameState, boardData, advanceTurn]);
 
   // === ローディング ===
   if (isLoading || !boardData || !gameState) {
@@ -687,6 +732,14 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
   const isMyTurn = currentPlayer?.id === localPlayerId;
   const pending = gameState.pendingInteraction;
   const isPendingMine = pending?.playerId === localPlayerId;
+  const pendingPlayerName = pending ? gameState.players[pending.playerId]?.name : '';
+  const pendingLabel = pending?.type === 'branch'
+    ? 'ルート選択待ち'
+    : pending?.type === 'minigame'
+      ? 'ミニゲーム待ち'
+      : pending?.type === 'steal'
+        ? 'ターゲット選択待ち'
+        : '';
 
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden relative">
@@ -935,7 +988,11 @@ function PlayInner({ boardId, roomId }: { boardId: string; roomId: string }) {
             ) : (
               <div className="flex flex-col items-center gap-3">
                 <div className="max-w-[92vw] bg-white/90 backdrop-blur-md px-4 sm:px-6 py-2 rounded-2xl sm:rounded-full shadow-lg font-bold text-slate-800 text-sm sm:text-base text-center">
-                  {isMyTurn ? (
+                  {pending ? (
+                    <span className={isPendingMine ? 'text-pink-600' : 'text-amber-600'}>
+                      {isPendingMine ? `${pendingLabel}です` : `${pendingPlayerName} さんの${pendingLabel}`}
+                    </span>
+                  ) : isMyTurn ? (
                     <span className="text-purple-600">🎲 あなたのターン！サイコロを振ろう</span>
                   ) : (
                     <span>{currentPlayer?.name} のターンを待っています...</span>

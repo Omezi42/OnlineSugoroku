@@ -97,8 +97,8 @@ export const EditorTutorial = ({ onComplete }: { onComplete: () => void }) => {
     const cardHeight = 240; // およその高さ
     const padding = 24;
 
-    let top = 0;
-    let left = 0;
+    let top: number;
+    let left: number;
     let transform = 'none';
 
     if (step.position === 'center') {

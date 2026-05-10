@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, useAnimation, AnimatePresence } from 'framer-motion';
+import { motion, useAnimation, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { DiceType } from '../../../types/board';
 
 interface DiceProps {
@@ -23,6 +23,7 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
   const [result, setResult] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const controls = useAnimation();
+  const shouldReduceMotion = useReducedMotion();
 
   const getRotationForValue = (val: number) => {
     if (diceType !== '1d6') return { x: 0, y: 0, z: 0 };
@@ -44,14 +45,15 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
     const rollResult = rollSingleDice(diceType);
     setResult(null);
 
-    // シャッフルアニメーション
-    await controls.start({
-      y: [0, -60, 0],
-      rotateX: [0, 360, 720],
-      rotateY: [0, 540, 1080],
-      scale: [1, 1.1, 1],
-      transition: { duration: 0.8, ease: "easeInOut" }
-    });
+    if (!shouldReduceMotion) {
+      await controls.start({
+        y: [0, -60, 0],
+        rotateX: [0, 360, 720],
+        rotateY: [0, 540, 1080],
+        scale: [1, 1.1, 1],
+        transition: { duration: 0.8, ease: "easeInOut" }
+      });
+    }
 
     setResult(rollResult);
     setIsRolling(false);
@@ -61,7 +63,9 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
       rotateX: finalRot.x,
       rotateY: finalRot.y,
       rotateZ: finalRot.z,
-      transition: { duration: 0.4, type: "spring", stiffness: 260, damping: 20 }
+      transition: shouldReduceMotion
+        ? { duration: 0.05 }
+        : { duration: 0.4, type: "spring", stiffness: 260, damping: 20 }
     });
 
     setTimeout(() => {
@@ -77,6 +81,16 @@ export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) 
       <motion.div
         className="relative w-20 h-20 perspective-1000 cursor-pointer"
         onClick={handleRoll}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleRoll();
+          }
+        }}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-label={`${diceType}を振る`}
+        aria-disabled={disabled || isRolling}
         whileHover={!disabled && !isRolling ? { scale: 1.05 } : {}}
         whileTap={!disabled && !isRolling ? { scale: 0.95 } : {}}
         style={{ perspective: '1000px' }}
