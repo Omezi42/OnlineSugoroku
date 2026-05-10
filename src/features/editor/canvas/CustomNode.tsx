@@ -1,4 +1,5 @@
 import { Handle, Position, NodeResizer } from '@xyflow/react';
+import { useEditorStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { NodeData } from '../../../types/board';
 import { cn } from '../../../lib/cn';
@@ -32,9 +33,10 @@ const sizeClasses: Record<string, string> = {
 };
 
 // ハンドル共通スタイル（大きめ＋ホバーエフェクト）
-const handleClass = 'w-5 h-5 !bg-purple-500 border-2 !border-white hover:!bg-pink-500 hover:scale-125 transition-all cursor-crosshair z-10';
+const handleClass = 'w-7 h-7 !bg-purple-500 border-2 !border-white hover:!bg-pink-500 hover:scale-110 transition-all cursor-crosshair z-10';
 
-export const CustomNode = ({ data, selected }: { data: NodeData, selected?: boolean }) => {
+export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData, selected?: boolean }) => {
+  const { updateNodeData } = useEditorStore();
   const players = data.playersOnNode || [];
 
   // 視認性のための文字色判定
@@ -68,6 +70,12 @@ export const CustomNode = ({ data, selected }: { data: NodeData, selected?: bool
           isVisible={selected} 
           lineClassName="border-purple-400 border-2" 
           handleClassName="w-3 h-3 bg-white border-2 border-purple-500 rounded-sm"
+          onResizeEnd={(_e, params) => {
+            updateNodeData(id, { 
+              areaWidth: params.width, 
+              areaHeight: params.height 
+            });
+          }}
         />
         <div
           className="absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-bold text-white shadow-md select-none"

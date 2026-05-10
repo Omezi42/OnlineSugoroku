@@ -5,10 +5,138 @@ import { X, ArrowUp, ArrowDown } from 'lucide-react';
 import { ActionEditor } from './ActionEditor';
 
 export const NodeConfigPanel = ({ onClose }: { onClose?: () => void }) => {
-  const { nodes, updateNodeData, updateNode } = useEditorStore();
+  const { nodes, updateNodeData, updateNode, updateNodesData } = useEditorStore();
   
-  const selectedNode = nodes.find(n => n.selected);
-  if (!selectedNode) return null;
+  const selectedNodes = nodes.filter(n => n.selected);
+  if (selectedNodes.length === 0) return null;
+
+  // 複数選択時の一括編集
+  if (selectedNodes.length > 1) {
+    const nodeIds = selectedNodes.map(n => n.id);
+    const hasArea = selectedNodes.some(n => n.data.nodeType === 'area');
+
+    return (
+      <div className="absolute inset-0 md:inset-auto md:right-4 md:top-4 md:bottom-4 md:w-80 z-10">
+        <GlassCard className="h-full flex flex-col p-4 md:p-6 overflow-y-auto shadow-2xl rounded-none md:rounded-2xl">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold">一括編集 ({selectedNodes.length}件)</h2>
+            <button 
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors md:hidden"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {!hasArea && (
+              <>
+                {/* ラベル一括変更 */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">ラベル (一括置換)</label>
+                  <input 
+                    type="text" 
+                    className="w-full p-2 rounded-lg border border-slate-200 bg-white/50 focus:ring-2 focus:ring-purple-400 outline-none transition-all"
+                    placeholder="選択したすべてのマス名を変更"
+                    onChange={(e) => updateNodesData(nodeIds, { label: e.target.value })}
+                  />
+                </div>
+
+                {/* マス種別の一括変更 */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">マス種別</label>
+                  <select 
+                    className="w-full p-2 rounded-lg border border-slate-200 bg-white/50 focus:ring-2 focus:ring-purple-400 outline-none transition-all"
+                    onChange={(e) => updateNodesData(nodeIds, { nodeType: e.target.value as any })}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>種別を選択...</option>
+                    <option value="normal">通常</option>
+                    <option value="plus">プラス</option>
+                    <option value="minus">マイナス</option>
+                    <option value="stop">ストップ</option>
+                  </select>
+                </div>
+
+                {/* サイズ一括変更 */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">サイズ</label>
+                  <div className="flex gap-2">
+                    {(['small', 'medium', 'large'] as NodeSize[]).map(size => (
+                      <button
+                        key={size}
+                        onClick={() => updateNodesData(nodeIds, { size })}
+                        className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-xs hover:bg-purple-50 transition-colors"
+                      >
+                        {size === 'small' ? '小' : size === 'medium' ? '中' : '大'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* カラー一括変更 */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">カスタムカラー</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      onChange={(e) => updateNodesData(nodeIds, { color: e.target.value })}
+                      className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer"
+                    />
+                    <button
+                      onClick={() => updateNodesData(nodeIds, { color: undefined })}
+                      className="text-xs text-slate-500 hover:text-red-500"
+                    >
+                      リセット
+                    </button>
+                  </div>
+                </div>
+
+                {/* 必ず止まる */}
+                <div className="flex items-center">
+                  <button
+                    onClick={() => updateNodesData(nodeIds, { isStop: true })}
+                    className="flex-1 py-2 bg-orange-50 text-orange-600 border border-orange-200 rounded-lg text-xs font-bold mr-2 hover:bg-orange-100 transition-colors"
+                  >
+                    全員ストップに設定
+                  </button>
+                  <button
+                    onClick={() => updateNodesData(nodeIds, { isStop: false })}
+                    className="flex-1 py-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-xs font-bold hover:bg-slate-100 transition-colors"
+                  >
+                    解除
+                  </button>
+                </div>
+
+                {/* アクションクリア */}
+                <div className="pt-4 border-t border-slate-100">
+                  <button
+                    onClick={() => {
+                      if (confirm(`${selectedNodes.length}個のマスからすべてのアクションを削除しますか？`)) {
+                        updateNodesData(nodeIds, { actions: [] });
+                      }
+                    }}
+                    className="w-full py-2 bg-red-50 text-red-600 border border-red-100 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <X className="w-3 h-3" />
+                    すべてのアクションをクリア
+                  </button>
+                </div>
+              </>
+            )}
+
+            {hasArea && (
+              <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl italic">
+                エリアノードが含まれているため、一括編集は制限されています。
+              </p>
+            )}
+          </div>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  const selectedNode = selectedNodes[0];
   const { id, data } = selectedNode;
 
   // 画像アップロード処理
@@ -17,7 +145,6 @@ export const NodeConfigPanel = ({ onClose }: { onClose?: () => void }) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      // 画像を圧縮してBase64で保存（簡易版）
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');

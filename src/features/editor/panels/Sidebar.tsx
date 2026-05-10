@@ -2,10 +2,50 @@ import type { NodeType } from '../../../types/board';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { X } from 'lucide-react';
 
+import { useEditorStore } from '../store';
+import { useReactFlow } from '@xyflow/react';
+
 export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
+  const { addNode } = useEditorStore();
+  const { getViewport, setCenter } = useReactFlow();
+
   const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onAddItem = (type: NodeType) => {
+    const { x, y, zoom } = getViewport();
+    // 画面中央付近に配置
+    const position = {
+      x: -x / zoom + (window.innerWidth / 2 - 150) / zoom,
+      y: -y / zoom + (window.innerHeight / 2 - 150) / zoom,
+    };
+
+    const newNode = {
+      id: `node-${Date.now()}`,
+      type: 'custom',
+      position,
+      style: type === 'area' ? { width: 400, height: 200 } : undefined,
+      zIndex: type === 'area' ? -10 : 0,
+      data: {
+        label: type === 'area' ? '新しいエリア' : '新しいマス',
+        description: '',
+        nodeType: type,
+        size: 'medium' as NodeSize,
+        isStop: type === 'stop',
+        actions: [],
+        areaColor: type === 'area' ? '#38bdf8' : undefined,
+        areaWidth: type === 'area' ? 400 : undefined,
+        areaHeight: type === 'area' ? 200 : undefined,
+      },
+    };
+    addNode(newNode);
+    
+    // モバイルの場合はサイドバーを閉じる
+    if (window.innerWidth < 768) {
+      onClose?.();
+    }
   };
 
   const nodeTypes: { type: NodeType; label: string; emoji: string; colorClass: string }[] = [
@@ -31,14 +71,15 @@ export const Sidebar = ({ onClose }: { onClose?: () => void }) => {
           </button>
         </div>
         <p className="text-xs text-slate-500 mb-4">
-          下のマスをキャンバスにドラッグ＆ドロップしてください。
+          クリックで追加、またはキャンバスへドラッグ＆ドロップしてください。
         </p>
         <div className="flex flex-col gap-2">
           {nodeTypes.map((item) => (
             <div
               key={item.type}
-              className={`p-3 rounded-xl text-white font-medium cursor-grab text-center shadow-md hover:brightness-110 hover:scale-[1.02] transition-all flex items-center gap-2 justify-center ${item.colorClass}`}
+              className={`p-3 rounded-xl text-white font-medium cursor-grab text-center shadow-md hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 justify-center ${item.colorClass}`}
               onDragStart={(event) => onDragStart(event, item.type)}
+              onClick={() => onAddItem(item.type)}
               draggable
             >
               <span>{item.emoji}</span>

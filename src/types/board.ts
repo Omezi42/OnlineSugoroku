@@ -138,6 +138,7 @@ export interface BoardSettings {
   background: 'dot' | 'grid' | 'none';
   bgmType?: string;
   areas: AreaDef[];
+  reducedMotion: boolean;
 }
 
 // エリア定義（盤面を視覚的に区切る）

@@ -379,7 +379,7 @@ export default function Editor() {
     }
   };
 
-  const selectedNodeId = nodes.find(n => n.selected)?.id;
+  const hasSelection = nodes.some(n => n.selected);
 
   return (
     <ReactFlowProvider>
@@ -418,7 +418,7 @@ export default function Editor() {
           <Canvas />
           
           <AnimatePresence>
-            {selectedNodeId && (
+            {hasSelection && (
               <motion.div
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}

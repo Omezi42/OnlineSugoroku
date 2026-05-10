@@ -12,6 +12,7 @@ export interface Player {
   rank?: number; // ゴールした順位
   hasGoal: boolean; // ゴール済みかどうか
   lastActive: number; // 最終アクティブ時刻（ミリ秒）
+  moveHistory: string[]; // 通過したマスの履歴（移動アニメーションや「戻る」処理用）
 }
 
 // ゲームのステータス

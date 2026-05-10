@@ -102,22 +102,26 @@ export function movePlayer(
 }
 
 /**
- * プレイヤーをNマス戻す
+ * プレイヤーをNマス戻す（移動履歴を使用）
  */
 export function movePlayerBack(
-  currentNodeId: string,
-  steps: number,
-  _nodes: Node<NodeData>[],
-  edges: Edge[]
-): string {
-  let nodeId = currentNodeId;
+  moveHistory: string[],
+  steps: number
+): { finalNodeId: string; passedNodeIds: string[] } {
+  const history = [...moveHistory];
+  const passed: string[] = [];
+  
   for (let i = 0; i < steps; i++) {
-    // 逆方向: targetが現在ノードであるエッジを探す
-    const incoming = edges.filter(e => e.target === nodeId);
-    if (incoming.length === 0) break;
-    nodeId = incoming[0].source; // 最初の入力エッジを辿る
+    if (history.length <= 1) break; // スタート地点より前には戻れない
+    history.pop(); // 現在地点を削除
+    const prevNodeId = history[history.length - 1];
+    passed.push(prevNodeId);
   }
-  return nodeId;
+
+  return {
+    finalNodeId: history[history.length - 1] || moveHistory[0],
+    passedNodeIds: passed,
+  };
 }
 
 // === アクション処理 ===
@@ -134,7 +138,173 @@ export interface ActionResult {
 }
 
 /**
- * 1つのアクションを処理する（同期的に処理できるもののみ）
+ * 各アクションの処理スタック
+ */
+const ACTION_HANDLERS: Record<
+  Action['type'],
+  (action: any, player: Player, context: { gameState: GameState; nodes: Node<NodeData>[]; edges: Edge[]; settings: BoardSettings }) => ActionResult
+> = {
+  paramChange: (action, player, { settings }) => {
+    const updatedPlayer = { ...player, params: { ...player.params } };
+    const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
+    updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + action.amount;
+    const sign = action.amount >= 0 ? '+' : '';
+    const logs = [createLog(`${player.name} の ${paramName} が ${sign}${action.amount} （→ ${updatedPlayer.params[action.paramId]}）`, 'action')];
+    return { updatedPlayer, logs };
+  },
+
+  moveN: (action, player) => {
+    const logs = [createLog(`${player.name} が ${action.amount}マス進む！`, 'action')];
+    return { updatedPlayer: player, logs, additionalMoveSteps: action.amount, additionalMoveDirection: 'forward' };
+  },
+
+  backN: (action, player) => {
+    const logs = [createLog(`${player.name} が ${action.amount}マス戻る…`, 'action')];
+    return { updatedPlayer: player, logs, additionalMoveSteps: action.amount, additionalMoveDirection: 'back' };
+  },
+
+  rest: (action, player) => {
+    const updatedPlayer = { ...player };
+    updatedPlayer.restTurns = (updatedPlayer.restTurns || 0) + action.turns;
+    const logs = [createLog(`${player.name} は ${action.turns}回休み！`, 'action')];
+    return { updatedPlayer, logs };
+  },
+
+  diceMove: (_action, player, { settings }) => {
+    const roll = rollDice(settings.diceType);
+    const logs = [createLog(`${player.name} がイベントサイコロで ${roll} を出した！`, 'action')];
+    return { updatedPlayer: player, logs, additionalMoveSteps: roll, additionalMoveDirection: 'forward' };
+  },
+
+  diceParam: (action, player, { settings }) => {
+    const updatedPlayer = { ...player, params: { ...player.params } };
+    const roll = rollDice(settings.diceType);
+    const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
+    const amount = roll * action.multiplier;
+    updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + amount;
+    const sign = amount >= 0 ? '+' : '';
+    const logs = [createLog(`${player.name} がイベントサイコロで ${roll} を出した！ ${paramName} ${sign}${amount}（→ ${updatedPlayer.params[action.paramId]}）`, 'action')];
+    return { updatedPlayer, logs };
+  },
+
+  goalBonus: (_action, player, { gameState, settings }) => {
+    const updatedPlayer = { ...player, params: { ...player.params } };
+    const logs: LogEntry[] = [];
+    const rank = updatedPlayer.rank || Object.values(gameState.players).filter(p => p.hasGoal).length + 1;
+    const rewards = settings.goalRewards[rank];
+    if (rewards) {
+      Object.entries(rewards).forEach(([paramId, amount]) => {
+        updatedPlayer.params[paramId] = (updatedPlayer.params[paramId] || 0) + amount;
+        const paramName = settings.parameters.find(p => p.id === paramId)?.name || paramId;
+        logs.push(createLog(`🏆 ${player.name} が ${rank}位ゴールボーナス: ${paramName} +${amount}`, 'action'));
+      });
+    }
+    return { updatedPlayer, logs };
+  },
+
+  warp: (action, player, { nodes }) => {
+    const targetNode = getNodeById(action.targetNodeId, nodes);
+    const targetLabel = targetNode?.data.label || action.targetNodeId;
+    const logs = [createLog(`✨ ${player.name} が「${targetLabel}」にワープ！`, 'action')];
+    return { updatedPlayer: player, logs, warpTarget: action.targetNodeId };
+  },
+
+  conditionBranch: (action, player, { nodes, edges, settings }) => {
+    const val = player.params[action.paramId] || 0;
+    let conditionMet = false;
+    switch (action.operator) {
+      case '>': conditionMet = val > action.value; break;
+      case '>=': conditionMet = val >= action.value; break;
+      case '==': conditionMet = val === action.value; break;
+      case '<=': conditionMet = val <= action.value; break;
+      case '<': conditionMet = val < action.value; break;
+    }
+    const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
+    const logs = [createLog(`条件判定: ${paramName} ${action.operator} ${action.value} → ${conditionMet ? '✅ 成立' : '❌ 不成立'}`, 'action')];
+    const selectedEdgeId = conditionMet ? action.trueEdgeId : action.falseEdgeId;
+    const selectedEdge = edges.find(edge => edge.id === selectedEdgeId);
+    if (selectedEdge) {
+      const targetLabel = getNodeById(selectedEdge.target, nodes)?.data.label || selectedEdge.target;
+      logs.push(createLog(`🔀 ${conditionMet ? '成立' : '不成立'}ルートで「${targetLabel}」へ進む`, 'move'));
+      return { updatedPlayer: player, logs, branchTarget: selectedEdge.target };
+    }
+    return { updatedPlayer: player, logs };
+  },
+
+  randomBranch: (action, player, { nodes, edges }) => {
+    const roll = Math.random() * 100;
+    const success = roll < action.probability;
+    const logs = [createLog(`ランダム判定: ${action.probability}% → ${success ? '✅ 成功！' : '❌ 失敗…'}`, 'action')];
+    const selectedEdgeId = success ? action.successEdgeId : action.failureEdgeId;
+    const selectedEdge = edges.find(edge => edge.id === selectedEdgeId);
+    if (selectedEdge) {
+      const targetLabel = getNodeById(selectedEdge.target, nodes)?.data.label || selectedEdge.target;
+      logs.push(createLog(`🎰 ${success ? '成功' : '失敗'}ルートで「${targetLabel}」へ進む`, 'move'));
+      return { updatedPlayer: player, logs, branchTarget: selectedEdge.target };
+    }
+    return { updatedPlayer: player, logs };
+  },
+
+  steal: (action, player, { gameState, settings }) => {
+    const logs: LogEntry[] = [];
+    if (action.target === 'select') {
+      const targets = Object.keys(gameState.players).filter(pid => pid !== player.id && !gameState.players[pid].hasGoal);
+      if (targets.length === 0) {
+        logs.push(createLog('対象にできるプレイヤーがいませんでした', 'action'));
+        return { updatedPlayer: player, logs };
+      }
+      logs.push(createLog(`${player.name} が他プレイヤーから奪う！ターゲットを選択…`, 'action'));
+      return {
+        updatedPlayer: player,
+        logs,
+        pendingInteraction: {
+          playerId: player.id,
+          type: 'steal',
+          nodeId: player.position,
+          stealTargets: targets,
+          action,
+        },
+      };
+    } else {
+      const targets = Object.keys(gameState.players).filter(pid => pid !== player.id && !gameState.players[pid].hasGoal);
+      if (targets.length > 0) {
+        const targetId = targets[Math.floor(Math.random() * targets.length)];
+        const targetPlayer = gameState.players[targetId];
+        const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
+        const stolen = Math.min(action.amount, targetPlayer.params[action.paramId] || 0);
+        const updatedPlayer = { ...player, params: { ...player.params } };
+        updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + stolen;
+        logs.push(createLog(`💰 ${player.name} が ${targetPlayer.name} から ${paramName} を ${stolen} 奪った！`, 'action'));
+        return {
+          updatedPlayer,
+          logs,
+          extraUpdates: {
+            [`players.${targetId}.params.${action.paramId}`]: (targetPlayer.params[action.paramId] || 0) - stolen,
+          },
+        };
+      }
+      logs.push(createLog('対象にできる他プレイヤーがいなかったため、何も起きませんでした', 'action'));
+      return { updatedPlayer: player, logs };
+    }
+  },
+
+  minigame: (action, player) => {
+    const logs = [createLog(`🎮 ミニゲーム発生！ ${action.gameType === 'janken' ? 'じゃんけん' : action.gameType === 'highlow' ? 'ハイ＆ロー' : '丁半'}`, 'action')];
+    return {
+      updatedPlayer: player,
+      logs,
+      pendingInteraction: {
+        playerId: player.id,
+        type: 'minigame',
+        nodeId: player.position,
+        action,
+      },
+    };
+  },
+};
+
+/**
+ * 1つのアクションを処理する
  */
 export function processAction(
   action: Action,
@@ -144,171 +314,11 @@ export function processAction(
   edges: Edge[],
   settings: BoardSettings
 ): ActionResult {
-  const logs: LogEntry[] = [];
-  const updatedPlayer = { ...player, params: { ...player.params } };
-
-  switch (action.type) {
-    case 'paramChange': {
-      const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
-      updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + action.amount;
-      const sign = action.amount >= 0 ? '+' : '';
-      logs.push(createLog(`${player.name} の ${paramName} が ${sign}${action.amount} （→ ${updatedPlayer.params[action.paramId]}）`, 'action'));
-      return { updatedPlayer, logs };
-    }
-
-    case 'moveN':
-      logs.push(createLog(`${player.name} が ${action.amount}マス進む！`, 'action'));
-      return { updatedPlayer, logs, additionalMoveSteps: action.amount, additionalMoveDirection: 'forward' };
-
-    case 'backN':
-      logs.push(createLog(`${player.name} が ${action.amount}マス戻る…`, 'action'));
-      return { updatedPlayer, logs, additionalMoveSteps: action.amount, additionalMoveDirection: 'back' };
-
-    case 'rest':
-      updatedPlayer.restTurns = (updatedPlayer.restTurns || 0) + action.turns;
-      logs.push(createLog(`${player.name} は ${action.turns}回休み！`, 'action'));
-      return { updatedPlayer, logs };
-
-    case 'diceMove': {
-      const roll = rollDice(settings.diceType);
-      logs.push(createLog(`${player.name} がイベントサイコロで ${roll} を出した！`, 'action'));
-      return {
-        updatedPlayer,
-        logs,
-        additionalMoveSteps: roll,
-        additionalMoveDirection: 'forward',
-      };
-    }
-
-    case 'diceParam': {
-      const roll = rollDice(settings.diceType);
-      const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
-      const amount = roll * action.multiplier;
-      updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + amount;
-      const sign = amount >= 0 ? '+' : '';
-      logs.push(createLog(`${player.name} がイベントサイコロで ${roll} を出した！ ${paramName} ${sign}${amount}（→ ${updatedPlayer.params[action.paramId]}）`, 'action'));
-      return {
-        updatedPlayer,
-        logs,
-      };
-    }
-
-    case 'goalBonus': {
-      // ゴールした順位に基づいてボーナスを適用
-      const rank = updatedPlayer.rank || Object.values(gameState.players).filter(p => p.hasGoal).length + 1;
-      const rewards = settings.goalRewards[rank];
-      if (rewards) {
-        Object.entries(rewards).forEach(([paramId, amount]) => {
-          updatedPlayer.params[paramId] = (updatedPlayer.params[paramId] || 0) + amount;
-          const paramName = settings.parameters.find(p => p.id === paramId)?.name || paramId;
-          logs.push(createLog(`🏆 ${player.name} が ${rank}位ゴールボーナス: ${paramName} +${amount}`, 'action'));
-        });
-      }
-      return { updatedPlayer, logs };
-    }
-
-    case 'warp': {
-      const targetNode = getNodeById(action.targetNodeId, nodes);
-      const targetLabel = targetNode?.data.label || action.targetNodeId;
-      logs.push(createLog(`✨ ${player.name} が「${targetLabel}」にワープ！`, 'action'));
-      return { updatedPlayer, logs, warpTarget: action.targetNodeId };
-    }
-
-    case 'conditionBranch': {
-      const val = updatedPlayer.params[action.paramId] || 0;
-      let conditionMet = false;
-      switch (action.operator) {
-        case '>': conditionMet = val > action.value; break;
-        case '>=': conditionMet = val >= action.value; break;
-        case '==': conditionMet = val === action.value; break;
-        case '<=': conditionMet = val <= action.value; break;
-        case '<': conditionMet = val < action.value; break;
-      }
-      const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
-      logs.push(createLog(`条件判定: ${paramName} ${action.operator} ${action.value} → ${conditionMet ? '✅ 成立' : '❌ 不成立'}`, 'action'));
-      const selectedEdgeId = conditionMet ? action.trueEdgeId : action.falseEdgeId;
-      const selectedEdge = edges.find(edge => edge.id === selectedEdgeId);
-      if (selectedEdge) {
-        const targetLabel = getNodeById(selectedEdge.target, nodes)?.data.label || selectedEdge.target;
-        logs.push(createLog(`🔀 ${conditionMet ? '成立' : '不成立'}ルートで「${targetLabel}」へ進む`, 'move'));
-        return { updatedPlayer, logs, branchTarget: selectedEdge.target };
-      }
-      return { updatedPlayer, logs };
-    }
-
-    case 'randomBranch': {
-      const roll = Math.random() * 100;
-      const success = roll < action.probability;
-      logs.push(createLog(`ランダム判定: ${action.probability}% → ${success ? '✅ 成功！' : '❌ 失敗…'}`, 'action'));
-      const selectedEdgeId = success ? action.successEdgeId : action.failureEdgeId;
-      const selectedEdge = edges.find(edge => edge.id === selectedEdgeId);
-      if (selectedEdge) {
-        const targetLabel = getNodeById(selectedEdge.target, nodes)?.data.label || selectedEdge.target;
-        logs.push(createLog(`🎰 ${success ? '成功' : '失敗'}ルートで「${targetLabel}」へ進む`, 'move'));
-        return { updatedPlayer, logs, branchTarget: selectedEdge.target };
-      }
-      return { updatedPlayer, logs };
-    }
-
-    case 'steal': {
-      if (action.target === 'select') {
-        // プレイヤー選択UIが必要
-        const targets = Object.keys(gameState.players).filter(pid => pid !== player.id && !gameState.players[pid].hasGoal);
-        if (targets.length === 0) {
-          logs.push(createLog('対象にできるプレイヤーがいませんでした', 'action'));
-          return { updatedPlayer, logs };
-        }
-        logs.push(createLog(`${player.name} が他プレイヤーから奪う！ターゲットを選択…`, 'action'));
-        return {
-          updatedPlayer,
-          logs,
-          pendingInteraction: {
-            playerId: player.id,
-            type: 'steal',
-            nodeId: player.position,
-            stealTargets: targets,
-            action,
-          },
-        };
-      } else {
-        // ランダムターゲット
-        const targets = Object.keys(gameState.players).filter(pid => pid !== player.id && !gameState.players[pid].hasGoal);
-        if (targets.length > 0) {
-          const targetId = targets[Math.floor(Math.random() * targets.length)];
-          const targetPlayer = gameState.players[targetId];
-          const paramName = settings.parameters.find(p => p.id === action.paramId)?.name || action.paramId;
-          const stolen = Math.min(action.amount, targetPlayer.params[action.paramId] || 0);
-          updatedPlayer.params[action.paramId] = (updatedPlayer.params[action.paramId] || 0) + stolen;
-          logs.push(createLog(`💰 ${player.name} が ${targetPlayer.name} から ${paramName} を ${stolen} 奪った！`, 'action'));
-          return {
-            updatedPlayer,
-            logs,
-            extraUpdates: {
-              [`players.${targetId}.params.${action.paramId}`]: (targetPlayer.params[action.paramId] || 0) - stolen,
-            },
-          };
-        }
-        return { updatedPlayer, logs };
-      }
-    }
-
-    case 'minigame': {
-      logs.push(createLog(`🎮 ミニゲーム発生！ ${action.gameType === 'janken' ? 'じゃんけん' : action.gameType === 'highlow' ? 'ハイ＆ロー' : '丁半'}`, 'action'));
-      return {
-        updatedPlayer,
-        logs,
-        pendingInteraction: {
-          playerId: player.id,
-          type: 'minigame',
-          nodeId: player.position,
-          action,
-        },
-      };
-    }
-
-    default:
-      return { updatedPlayer, logs };
+  const handler = ACTION_HANDLERS[action.type];
+  if (handler) {
+    return handler(action, player, { gameState, nodes, edges, settings });
   }
+  return { updatedPlayer: player, logs: [] };
 }
 
 // === ゴール判定 ===

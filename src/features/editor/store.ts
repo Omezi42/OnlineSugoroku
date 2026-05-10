@@ -49,6 +49,7 @@ const defaultBoardSettings: BoardSettings = {
   goalRewards: { 1: { money: 5000 }, 2: { money: 3000 }, 3: { money: 1000 } },
   background: 'dot',
   areas: [],
+  reducedMotion: false,
 };
 
 const createNode = (
@@ -103,16 +104,24 @@ const pushHistory = (state: EditorState) => ({
 
 const selectableNodes = (nodes: Node<NodeData>[]) => nodes.filter((node) => node.data.nodeType !== 'area');
 
-const layoutNodes = (nodes: Node<NodeData>[], mode: LayoutMode): Node<NodeData>[] => {
-  const boardNodes = selectableNodes(nodes);
+const layoutNodes = (nodes: Node<NodeData>[], mode: LayoutMode, targetIds?: Set<string>): Node<NodeData>[] => {
+  const allBoardNodes = selectableNodes(nodes);
+  const boardNodes = targetIds 
+    ? allBoardNodes.filter(n => targetIds.has(n.id))
+    : allBoardNodes;
+  
+  if (boardNodes.length === 0) return nodes;
+
   const centerX = 420;
   const centerY = 280;
   const radius = Math.max(220, boardNodes.length * 42);
 
-  let boardIndex = 0;
+  let targetIndex = 0;
+  const targetIdSet = targetIds || new Set(boardNodes.map(n => n.id));
+
   return nodes.map((node) => {
-    if (node.data.nodeType === 'area') return node;
-    const index = boardIndex++;
+    if (!targetIdSet.has(node.id) || node.data.nodeType === 'area') return node;
+    const index = targetIndex++;
     if (mode === 'line') {
       return { ...node, position: { x: 160 + index * 190, y: 280 } };
     }
@@ -308,10 +317,50 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   onNodesChange: (changes) => {
     const shouldRecord = changes.some((change) => change.type === 'remove' || (change.type === 'position' && !change.dragging));
-    set((state) => ({
-      ...(shouldRecord ? pushHistory(state) : {}),
-      nodes: applyNodeChanges(changes, state.nodes),
-    }));
+    
+    set((state) => {
+      // エリア移動時に中のノードも動かす
+      const areaMoves = changes.filter(c => 
+        c.type === 'position' && 
+        c.dragging && 
+        state.nodes.find(n => n.id === c.id)?.data.nodeType === 'area'
+      ) as any[];
+
+      let updatedNodes = applyNodeChanges(changes, state.nodes);
+
+      if (areaMoves.length > 0) {
+        areaMoves.forEach(move => {
+          const areaNode = state.nodes.find(n => n.id === move.id);
+          if (!areaNode) return;
+          const dx = move.position.x - areaNode.position.x;
+          const dy = move.position.y - areaNode.position.y;
+          const width = areaNode.data.areaWidth || 400;
+          const height = areaNode.data.areaHeight || 200;
+
+          updatedNodes = updatedNodes.map(node => {
+            if (node.id === areaNode.id || node.data.nodeType === 'area') return node;
+            // エリアの範囲内にあるノードを一緒に動かす
+            const inX = node.position.x >= areaNode.position.x && node.position.x <= areaNode.position.x + width;
+            const inY = node.position.y >= areaNode.position.y && node.position.y <= areaNode.position.y + height;
+            if (inX && inY) {
+              return {
+                ...node,
+                position: {
+                  x: node.position.x + dx,
+                  y: node.position.y + dy
+                }
+              };
+            }
+            return node;
+          });
+        });
+      }
+
+      return {
+        ...(shouldRecord ? pushHistory(state) : {}),
+        nodes: updatedNodes,
+      };
+    });
   },
 
   onEdgesChange: (changes) => {
@@ -336,6 +385,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ...pushHistory(state),
       nodes: state.nodes.map((node) =>
         node.id === id ? { ...node, data: { ...node.data, ...data } } : node
+      ),
+    }));
+  },
+
+  updateNodesData: (ids, data) => {
+    set((state) => ({
+      ...pushHistory(state),
+      nodes: state.nodes.map((node) =>
+        ids.includes(node.id) ? { ...node, data: { ...node.data, ...data } } : node
       ),
     }));
   },
@@ -426,7 +484,33 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
-  applyLayout: (mode) => set((state) => ({ ...pushHistory(state), nodes: layoutNodes(state.nodes, mode) })),
+  applyLayout: (mode) => set((state) => {
+    const selectedIds = state.nodes.filter(n => n.selected).map(n => n.id);
+    // 1つ以上のエリアが選択されている場合、そのエリア内のノードのみを対象にする
+    const selectedAreas = state.nodes.filter(n => n.selected && n.data.nodeType === 'area');
+    let targetIds: Set<string> | undefined;
+
+    if (selectedAreas.length > 0) {
+      targetIds = new Set();
+      selectedAreas.forEach(area => {
+        const width = area.data.areaWidth || 400;
+        const height = area.data.areaHeight || 200;
+        state.nodes.forEach(node => {
+          if (node.data.nodeType === 'area') return;
+          const inX = node.position.x >= area.position.x && node.position.x <= area.position.x + width;
+          const inY = node.position.y >= area.position.y && node.position.y <= area.position.y + height;
+          if (inX && inY) targetIds?.add(node.id);
+        });
+      });
+    } else if (selectedIds.length > 0) {
+      targetIds = new Set(selectedIds);
+    }
+
+    return { 
+      ...pushHistory(state), 
+      nodes: layoutNodes(state.nodes, mode, targetIds) 
+    };
+  }),
 
   applyTemplate: (template) => {
     const next = createTemplate(template);

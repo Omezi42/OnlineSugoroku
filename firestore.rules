@@ -72,10 +72,15 @@ service cloud.firestore {
 
     // Games / Rooms (プレイデータ)
     match /games/{gameId} {
-      // 匿名マルチプレイを維持しつつ、無料枠を圧迫する巨大ログや想定外フィールドを拒否する。
       allow read: if true;
-      allow create, update: if isValidGame(request.resource.data) &&
-                              request.resource.data.size() < 1048576;
+      allow create: if isValidGame(request.resource.data) &&
+                      request.resource.data.playerOrder.size() >= 1;
+      allow update: if isValidGame(request.resource.data) &&
+                      // ターン遷移のバリデーション（簡易版）
+                      (request.resource.data.currentTurnIndex == resource.data.currentTurnIndex ||
+                       request.resource.data.currentTurnIndex == (resource.data.currentTurnIndex + 1) % request.resource.data.playerOrder.size() ||
+                       request.resource.data.status == 'waiting') && // リセット時は許容
+                      request.resource.data.size() < 1048576;
       allow delete: if false;
     }
   }

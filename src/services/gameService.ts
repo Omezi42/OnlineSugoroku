@@ -66,7 +66,7 @@ const createInitialState = (roomId: string, boardId: string, hostPlayer: Player)
   boardId,
   status: 'waiting',
   players: {
-    [hostPlayer.id]: hostPlayer,
+    [hostPlayer.id]: { ...hostPlayer, moveHistory: [hostPlayer.position] },
   },
   playerOrder: [hostPlayer.id],
   currentTurnIndex: 0,
@@ -101,6 +101,7 @@ export const createGameRoom = async (roomId: string, boardId: string, hostPlayer
       [`players.${hostPlayer.id}`]: {
         ...hostPlayer,
         ...existingPlayer,
+        moveHistory: existingPlayer?.moveHistory || [hostPlayer.position],
         lastActive: Date.now(),
       },
       playerOrder: arrayUnion(hostPlayer.id),
@@ -125,6 +126,7 @@ export const joinGameRoom = async (roomId: string, player: Player) => {
       [`players.${player.id}`]: {
         ...player,
         ...existingPlayer,
+        moveHistory: existingPlayer?.moveHistory || [player.position],
         lastActive: Date.now(),
       },
       playerOrder: arrayUnion(player.id),

@@ -17,6 +17,7 @@ const defaultSettings: BoardSettings = {
   goalRewards: { 1: { money: 5000 }, 2: { money: 3000 }, 3: { money: 1000 } },
   background: 'dot',
   areas: [],
+  reducedMotion: false,
 };
 
 const normalizeNodeType = (value: unknown, index: number, total: number): NodeType => {

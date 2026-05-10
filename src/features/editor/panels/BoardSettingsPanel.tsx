@@ -146,6 +146,29 @@ export const BoardSettingsPanel = ({ isOpen, onClose }: BoardSettingsPanelProps)
                   ))}
                 </div>
               </section>
+
+              {/* === アクセシビリティ設定 === */}
+              <section className="bg-white/40 p-5 rounded-2xl border border-slate-100 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <span className="w-6 h-6 bg-teal-100 text-teal-600 rounded-lg flex items-center justify-center text-xs">👁️</span>
+                  アクセシビリティ
+                </h3>
+                <label className="flex items-center justify-between p-3 bg-white/70 rounded-xl border border-slate-100 cursor-pointer hover:bg-white transition-colors">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-bold text-slate-700">アニメーションを軽減</span>
+                    <span className="text-[10px] text-slate-400">サイコロやコマ移動の演出を控えめにします</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={boardSettings.reducedMotion || false}
+                      onChange={(e) => updateBoardSettings({ reducedMotion: e.target.checked })}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                  </div>
+                </label>
+              </section>
             </div>
 
             {/* Right Column: Parameters & Rewards */}

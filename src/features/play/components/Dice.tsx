@@ -6,6 +6,7 @@ interface DiceProps {
   diceType: DiceType;
   onRollComplete: (result: number) => void;
   disabled?: boolean;
+  reducedMotion?: boolean;
 }
 
 function rollSingleDice(diceType: DiceType): number {
@@ -19,11 +20,12 @@ function rollSingleDice(diceType: DiceType): number {
   }
 }
 
-export const Dice = ({ diceType, onRollComplete, disabled = false }: DiceProps) => {
+export const Dice = ({ diceType, onRollComplete, disabled = false, reducedMotion = false }: DiceProps) => {
   const [result, setResult] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const controls = useAnimation();
-  const shouldReduceMotion = useReducedMotion();
+  const systemReducedMotion = useReducedMotion();
+  const shouldReduceMotion = systemReducedMotion || reducedMotion;
 
   const getRotationForValue = (val: number) => {
     if (diceType !== '1d6') return { x: 0, y: 0, z: 0 };
