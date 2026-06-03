@@ -1,12 +1,12 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { ReactFlow, Background, BackgroundVariant, Controls, MiniMap, useReactFlow, MarkerType } from '@xyflow/react';
-import type { NodeTypes } from '@xyflow/react';
+import type { NodeTypes, Node, Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { useEditorStore } from '../store';
 import { CustomNode } from './CustomNode';
 import { ButtonEdge } from './ButtonEdge';
-import type { NodeType, NodeSize } from '../../../types/board';
+import type { NodeType, NodeSize, NodeData } from '../../../types/board';
 import type { EditorPresence } from '../../../services/boardService';
 import { MousePointer2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -114,7 +114,7 @@ export const Canvas = ({
       onPointerMove={onPaneMouseMove}
       onPointerUp={onPaneMouseUp}
     >
-      <ReactFlow
+      <ReactFlow<Node<NodeData>, Edge>
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
@@ -127,22 +127,10 @@ export const Canvas = ({
           // 選択状態の変更を検知してログ出力（デバッグ用兼、再レンダリング保証）
           console.log('Selection changed:', selectedNodes.length);
         }}
-        onNodeContextMenu={(e, node) => {
+        onNodeContextMenu={(e: React.MouseEvent, node: Node<NodeData>) => {
           e.preventDefault();
           if (node.data.nodeType !== 'area') {
             setConnectionSourceId(node.id);
-          }
-        }}
-        onNodePointerUp={(_e, node) => {
-          // 接続モードまたは右クリックドラッグ中の接続完了
-          if (connectionSourceId && connectionSourceId !== node.id && node.data.nodeType !== 'area') {
-            onConnect({ 
-              source: connectionSourceId, 
-              target: node.id, 
-              sourceHandle: null, 
-              targetHandle: null 
-            });
-            setConnectionSourceId(null);
           }
         }}
         nodeTypes={nodeTypes}

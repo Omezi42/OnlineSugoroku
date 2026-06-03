@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEditorStore } from '../store';
 import { GlassCard } from '../../../components/ui/GlassCard';
-import { Play, RotateCcw, BarChart3, Clock, AlertTriangle, X, Info, Activity } from 'lucide-react';
+import { RotateCcw, BarChart3, Clock, AlertTriangle, X, Info, Activity, Flag } from 'lucide-react';
 import { movePlayer, rollDice, checkGoal } from '../../../services/gameEngine';
+import { cn } from '../../../lib/cn';
 
 interface SimResult {
   totalGames: number;
@@ -21,7 +22,6 @@ export const AISimulatorPanel = () => {
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<SimResult | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [debugLog, setDebugLog] = useState<string[]>([]);
 
   useEffect(() => {
     const handleToggle = () => setIsOpen(prev => !prev);
@@ -33,7 +33,6 @@ export const AISimulatorPanel = () => {
     setIsSimulating(true);
     setProgress(0);
     setResults(null);
-    setDebugLog([]);
 
     const numGames = 100;
     const nodeVisits: Record<string, number> = {};

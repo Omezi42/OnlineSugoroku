@@ -39,13 +39,26 @@ const sizeClasses: Record<string, string> = {
 const handleClass = 'w-10 h-10 !bg-purple-500 border-4 !border-white hover:!bg-pink-500 hover:scale-125 transition-all cursor-crosshair z-20 flex items-center justify-center text-white text-[10px] font-bold shadow-lg rounded-full';
 
 export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData, selected?: boolean }) => {
-  const { updateNodeData, connectionSourceId, setConnectionSourceId, onConnect } = useEditorStore();
+  const { updateNodeData, setConnectionSourceId } = useEditorStore();
   const players = data.playersOnNode || [];
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (useEditorStore.getState().editorMode === 'connect' && data.nodeType !== 'area') {
       e.stopPropagation();
       setConnectionSourceId(id);
+    }
+  };
+
+  const onPointerUp = () => {
+    const state = useEditorStore.getState();
+    if (state.connectionSourceId && state.connectionSourceId !== id && data.nodeType !== 'area') {
+      state.onConnect({
+        source: state.connectionSourceId,
+        target: id,
+        sourceHandle: null,
+        targetHandle: null
+      });
+      state.setConnectionSourceId(null);
     }
   };
 
@@ -103,6 +116,7 @@ export const CustomNode = ({ id, data, selected }: { id: string, data: NodeData,
       animate={{ scale: 1, opacity: 1 }}
       layoutId={id}
       onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
       className={cn(
         'relative flex flex-col items-center justify-center rounded-2xl shadow-lg transition-transform',
         typeColors[data.nodeType],
